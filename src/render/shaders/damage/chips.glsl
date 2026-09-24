@@ -1,11 +1,5 @@
-// Chips: scars where flakes of stone broke away, read from the features texture
-// (row 0: x, y, radius, depth in mm; row 1: seed, breaks-through flag, angle, aspect).
-
-const int MAX_CHIPS = 64;
-
-float hash1(float n) {
-  return fract(sin(n * 12.9898) * 43758.5453);
-}
+// Chips: scars where flakes broke away, read from the features texture
+// (CHIP_ROW: x, y, radius, depth in mm; +1: seed, breaks-through flag, angle, aspect).
 
 // Outline of an irregular polygon, as a fraction of the chip's radius in the direction
 // `angle` (radians): broken stone has corners, not the soft lobes of plain noise.
@@ -20,16 +14,16 @@ float polygonRadius(float angle, float seed) {
 
 struct Chipping {
   float depth;   // mm below the face; 0 where the face is intact
-  float fresh;   // 1 on newly exposed stone, which is paler than the weathered face
-  float missing; // 1 where a chip broke right through and the slab is gone
+  float fresh;   // 1 on newly exposed material, which is paler than the weathered face
+  float missing; // 1 where a chip broke right through and the object is gone
 };
 
 Chipping chipsAt(vec2 p) {
   Chipping result = Chipping(0.0, 0.0, 0.0);
-  for (int i = 0; i < MAX_CHIPS; i++) {
+  for (int i = 0; i < MAX_FEATURES; i++) {
     if (i >= u_chipCount) break;
-    vec4 chip = texelFetch(u_features, ivec2(i, 0), 0);
-    vec4 more = texelFetch(u_features, ivec2(i, 1), 0);
+    vec4 chip = texelFetch(u_features, ivec2(i, CHIP_ROW), 0);
+    vec4 more = texelFetch(u_features, ivec2(i, CHIP_ROW + 1), 0);
     vec2 q = p - chip.xy;
     if (dot(q, q) > chip.z * chip.z * 2.25) continue;
 

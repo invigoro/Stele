@@ -1,9 +1,10 @@
 // Pen ink, drawn from the text distance field. Fading thins strokes and wears the
 // ink away in patches; water makes it spread and run down the page.
 
-// Iron-gall ink: blue-black when fresh, turning brown as it ages.
+// The ink's colour now: fresh, shifting toward its aged colour as it fades (iron-gall
+// ink browns; carbon ink stays black but greys as it wears).
 vec3 inkColor() {
-  return mix(vec3(0.10, 0.09, 0.13), vec3(0.50, 0.36, 0.22), smoothstep(0.0, 1.0, u_fade));
+  return mix(u_writingColor, u_writingAged, smoothstep(0.0, 1.0, u_fade));
 }
 
 // A gentle wobble applied to the letters, so repeated glyphs don't look stamped.
@@ -13,8 +14,8 @@ vec2 handWobble(vec2 p) {
   return 0.03 * max(u_textSize, 1.0) * vec2(snoise(q), snoise(q + vec2(17.0, 5.0)));
 }
 
-// How much ink is at p: 0 for bare paper, 1 for a solid, freshly inked stroke.
-// `wet` (0..1) is how soaked the paper got.
+// How much ink is at p: 0 for the bare surface, 1 for a solid, freshly inked stroke.
+// `wet` (0..1) is how soaked the sheet got.
 float inkAmount(vec2 p, float wet) {
   if (u_textSize <= 0.0) return 0.0;
   vec2 w = p + handWobble(p);
@@ -34,13 +35,13 @@ float inkAmount(vec2 p, float wet) {
   if (wet > 0.001) {
     float spread = 0.03 * u_textSize * wet + px;
     float drip = 0.4 + 0.6 * (0.5 + 0.5 * snoise(vec2(p.x * 1.5, 3.1) + u_damageSeed));
-    float length = 0.6 * u_textSize * wet * drip;
-    float dither = fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+    float runLength = 0.6 * u_textSize * wet * drip;
+    float jitter = dither(p);
     float run = 0.0;
     float runDensity = 0.0;
     for (int i = 0; i < 16; i++) {
-      float t = (float(i) + dither) / 16.0;
-      vec2 q = w - vec2(0.0, t * length);
+      float t = (float(i) + jitter) / 16.0;
+      vec2 q = w - vec2(0.0, t * runLength);
       float c = smoothstep(-spread, spread, textDistance(q) + 0.5 * spread) * pow(1.0 - t, 2.0);
       if (c > run) {
         run = c;

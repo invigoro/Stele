@@ -1,11 +1,12 @@
 # Stele
 
 Stele turns text into a weathered inscription or an aged document: carved marble, crumbling
-sandstone, burnt letters, water-stained papyrus. The result is a printable handout for tabletop
-games, where damage and fading make it harder for players to read.
+sandstone, burnt letters, water-stained papyrus. The result is a handout image for tabletop games,
+to share with players or print, where damage and fading make it harder for players to read.
 
-**Live site:** https://invigoro.github.io/Stele/ (work in progress: carved marble and inked paper
-so far, with damage, fade and 300 DPI PNG export)
+**Live site:** https://stele.invigoro.me/ (work in progress). Eight media so far: marble, sandstone,
+granite, slate, wood, paper, parchment and papyrus, each with its own damage types, plus fade, colour
+variants, shapes, several writing methods and a 300 DPI PNG download.
 
 ## Development
 

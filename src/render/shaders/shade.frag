@@ -5,7 +5,7 @@ precision highp float;
 
 #include "lib/color.glsl"
 
-uniform sampler2D u_surface; // height (mm), alpha, roughness
+uniform sampler2D u_surface; // height (mm), alpha, roughness, metal
 uniform sampler2D u_albedo;  // sRGB colour
 uniform float u_pxPerMm;
 uniform vec3 u_lightDir;     // unit vector toward the lamp
@@ -35,6 +35,7 @@ void main() {
   float h = surface.r;
   float alpha = surface.g;
   float roughness = surface.b;
+  float metal = surface.a;
   vec3 albedo = srgbToLinear(texelFetch(u_albedo, p, 0).rgb);
   float mmPerPx = 1.0 / u_pxPerMm;
 
@@ -70,9 +71,16 @@ void main() {
 
   float diffuse = max(dot(n, u_lightDir), 0.0) * lit;
   vec3 halfway = normalize(u_lightDir + vec3(0.0, 0.0, 1.0));
-  float gloss = u_specular * (1.0 - roughness) * pow(max(dot(n, halfway), 0.0), u_shininess) * lit;
+  // Metal (gold leaf) reflects in its own colour, with tighter, stronger highlights.
+  float shininess = mix(u_shininess, 90.0, metal);
+  float strength = u_specular * (1.0 - roughness) + 1.4 * metal;
+  vec3 glossColor = mix(vec3(1.0), albedo * 1.2, metal);
+  vec3 gloss = glossColor * strength * pow(max(dot(n, halfway), 0.0), shininess) * lit;
   float sky = 0.6 + 0.4 * n.z; // ambient light mostly comes from in front
-  vec3 color = albedo * (u_ambient * sky * ao + u_diffuse * diffuse) + gloss;
+  vec3 color = albedo * (1.0 - 0.6 * metal) * (u_ambient * sky * ao + u_diffuse * diffuse) + gloss;
+  // Gold mostly shows the surroundings it reflects; without them it looks like brown
+  // paint. Fake a bright, soft environment, strongest on surfaces facing the viewer.
+  color += albedo * metal * (0.55 + 0.35 * n.z) * ao;
   // Normalise so a flat, unshadowed patch shows exactly its albedo.
   color /= u_ambient + u_diffuse * u_lightDir.z;
   vec3 rgb = linearToSrgb(color);

@@ -203,6 +203,26 @@ button.secondary {
   border-color: var(--accent);
 }
 
+.subsection {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.subsection summary {
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.subsection[open] summary {
+  margin-bottom: 8px;
+}
+
+.subsection .field-label {
+  font-size: 0.85rem;
+}
+
 .diagnostics {
   margin-top: 28px;
   color: var(--muted);

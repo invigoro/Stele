@@ -1,10 +1,11 @@
 # Stele implementation plan
 
 Stele turns text into a realistic physical object with writing on it (a marble inscription, a
-letter, a papyrus fragment) and outputs a printable handout for tabletop games. The point is
+letter, a papyrus fragment) and outputs a handout image for tabletop games, to share with players
+directly or to print. The point is
 legibility: damage and fade let a game master control how hard the text is for players to read.
 
-**Current phase:** 2 (the full starting set). Phases 0 and 1 are done. See [Milestones](#milestones).
+**Current phase:** 3 (handout workflow). Phases 0–2 are done. See [Milestones](#milestones).
 
 ## The approach
 
@@ -176,6 +177,10 @@ interface Settings {
 
 ## Printing and export
 
+The image is the main output: it can be shared directly (chat, a virtual tabletop), where it looks
+best, or printed. Printing is supported but isn't the priority; prints from a basic black-and-white
+printer came out fine in testing.
+
 - **Page setup:** Letter (default), A4, A5 and index cards, with the object's size in inches or
   cm and a preview of its placement on the page.
 - **Print:** renders at 300 DPI into a print-only layout sized in real inches, so it prints at
@@ -199,15 +204,15 @@ src/
   main.ts · style.css            # app entry: wires settings, panel, preview and export
   settings.ts                    # the Settings model, defaults, switching medium
   scene.ts                       # settings → everything the renderer needs, in mm
-  media/media.ts                 # one definition per medium: size, font, hand, light, damage
+  media/                         # media (sizes, variants, methods, damage mix), shapes, writing methods
   text/                          # fonts, layout/fit/wrap, the writing hand, rasterizing
-  damage/                        # seeded generators (chips, stains) and GPU packing
+  damage/                        # seeded generators (chips, breaks, cracks, holes, burns, tears…) and GPU packing
   render/
     gl.ts · targets.ts           # WebGL2 context, capability checks, programs, render targets
     distanceField.ts             # jump-flood signed distance to the letters
     renderer.ts · display.ts     # cached surface + lighting passes; drawing to the page
     shaders/                     # all GLSL; .vert/.frag entry points, .glsl libraries
-      lib/ surface/ media/ writing/ damage/
+      lib/ surface/ media/ writing/ damage/  # media/stone.glsl and sheet.glsl hold shared behaviour
   export/                        # PNG with DPI, file download
   ui/                            # store, control builders, the control panel
   dev/contactSheet.ts            # the contact sheet page
@@ -220,25 +225,25 @@ src/
 - Vite/TS project, the deploy workflow, and a WebGL2 test canvas live on Pages.
 - *Done when* a push to `main` updates the site.
 
-**Phase 1: Get Marble and Paper looking real.** *(done; awaiting a real print test)*
-This is make-or-break. The whole product depends on looking real, so prove it on two very
-different media before building everything else.
+**Phase 1: Get Marble and Paper looking real.** *(done; a test print on a black-and-white printer
+looked good)*
+Prove the look on two very different media before building everything else.
 - text layout, a few fonts, the distance field, the noise library, and the combine and lighting
   steps
 - carved marble and inked paper
 - Fade on both, plus two damage types: marble chips and water-damaged paper with running ink
 - seeds, 300 DPI PNG export, and the contact sheet page for tuning
 
-*Done when* a printed page is convincing at arm's length and readability drops off smoothly as
+*Done when* the image is convincing, on screen or printed, and readability drops off smoothly as
 the sliders go up.
 
-**Phase 2: The full starting set.** *(current)*
+**Phase 2: The full starting set.** *(done)*
 - Sandstone, Wood and Papyrus, plus Parchment, Granite and Slate
 - the remaining damage types
 - writing methods: flat-bottomed cuts, paint- or gold-filled carving, painted, burned, carbon ink
 - shapes, lighting controls and color variants
 
-**Phase 3: Handout workflow.**
+**Phase 3: Handout workflow.** *(current)*
 - true-size printing, and PNG with DPI and transparency
 - share links and autosave
 - presets: "Roman epitaph", "Burnt letter", "Papyrus fragment", "Tavern sign"
@@ -262,7 +267,8 @@ the sliders go up.
   ambientCG or Poly Haven).
 - **GPU memory at 300 DPI:** a full Letter page needs about 150–250 MB of GPU memory.
   Lower-precision buffers help, and large exports can be rendered in tiles.
-- **Printers vary:** the calibration page and the brightness option cover this.
+- **Printers vary:** a low-priority concern, since the image can always be shared instead. The
+  calibration page and brightness option are nice-to-haves.
 - **Font licensing:** only openly licensed fonts get bundled, so no Trajan. Anything else comes
   through user upload.
 

@@ -5,15 +5,25 @@ import homemadeAppleLatin from '@fontsource/homemade-apple/files/homemade-apple-
 import imFellLatin from '@fontsource/im-fell-english/files/im-fell-english-latin-400-normal.woff2?url';
 import marcellusLatin from '@fontsource/marcellus/files/marcellus-latin-400-normal.woff2?url';
 import marcellusLatinExt from '@fontsource/marcellus/files/marcellus-latin-ext-400-normal.woff2?url';
+import mrsSaintDelafieldLatin from '@fontsource/mrs-saint-delafield/files/mrs-saint-delafield-latin-400-normal.woff2?url';
+import mrsSaintDelafieldLatinExt from '@fontsource/mrs-saint-delafield/files/mrs-saint-delafield-latin-ext-400-normal.woff2?url';
+import runicLatin from '@fontsource/noto-sans-runic/files/noto-sans-runic-latin-400-normal.woff2?url';
+import runicRunic from '@fontsource/noto-sans-runic/files/noto-sans-runic-runic-400-normal.woff2?url';
 import pinyonLatin from '@fontsource/pinyon-script/files/pinyon-script-latin-400-normal.woff2?url';
 import pinyonLatinExt from '@fontsource/pinyon-script/files/pinyon-script-latin-ext-400-normal.woff2?url';
+import specialEliteLatin from '@fontsource/special-elite/files/special-elite-latin-400-normal.woff2?url';
+import specialEliteLatinExt from '@fontsource/special-elite/files/special-elite-latin-ext-400-normal.woff2?url';
+import uncialLatin from '@fontsource/uncial-antiqua/files/uncial-antiqua-latin-400-normal.woff2?url';
+import uncialLatinExt from '@fontsource/uncial-antiqua/files/uncial-antiqua-latin-ext-400-normal.woff2?url';
+import frakturLatin from '@fontsource/unifrakturmaguntia/files/unifrakturmaguntia-latin-400-normal.woff2?url';
 import type { Measure } from './layout';
 
-// Unicode ranges of Fontsource's "latin" and "latin-ext" subsets.
+// Unicode ranges of Fontsource's "latin", "latin-ext" and "runic" subsets.
 const LATIN =
   'U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD';
 const LATIN_EXT =
   'U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF';
+const RUNIC = 'U+16A0-16F8';
 
 export interface FontDef {
   label: string;
@@ -54,6 +64,27 @@ export const FONTS = {
     letterSpacing: 0.04,
     lineHeight: 1.4,
   },
+  'uncial-antiqua': {
+    label: 'Uncial Antiqua · medieval uncial',
+    family: 'Stele Uncial Antiqua',
+    weight: '400',
+    files: [
+      { url: uncialLatin, unicodeRange: LATIN },
+      { url: uncialLatinExt, unicodeRange: LATIN_EXT },
+    ],
+    connected: false,
+    letterSpacing: 0.02,
+    lineHeight: 1.4,
+  },
+  unifrakturmaguntia: {
+    label: 'UnifrakturMaguntia · gothic blackletter',
+    family: 'Stele UnifrakturMaguntia',
+    weight: '400',
+    files: [{ url: frakturLatin, unicodeRange: LATIN }],
+    connected: false,
+    letterSpacing: 0,
+    lineHeight: 1.35,
+  },
   'im-fell-english': {
     label: 'IM Fell English · early print',
     family: 'Stele IM Fell English',
@@ -70,6 +101,18 @@ export const FONTS = {
     files: [
       { url: pinyonLatin, unicodeRange: LATIN },
       { url: pinyonLatinExt, unicodeRange: LATIN_EXT },
+    ],
+    connected: true,
+    letterSpacing: 0,
+    lineHeight: 1.5,
+  },
+  'mrs-saint-delafield': {
+    label: 'Mrs Saint Delafield · flowing script',
+    family: 'Stele Mrs Saint Delafield',
+    weight: '400',
+    files: [
+      { url: mrsSaintDelafieldLatin, unicodeRange: LATIN },
+      { url: mrsSaintDelafieldLatinExt, unicodeRange: LATIN_EXT },
     ],
     connected: true,
     letterSpacing: 0,
@@ -92,6 +135,30 @@ export const FONTS = {
     connected: true,
     letterSpacing: 0,
     lineHeight: 1.55,
+  },
+  'special-elite': {
+    label: 'Special Elite · typewriter',
+    family: 'Stele Special Elite',
+    weight: '400',
+    files: [
+      { url: specialEliteLatin, unicodeRange: LATIN },
+      { url: specialEliteLatinExt, unicodeRange: LATIN_EXT },
+    ],
+    connected: false,
+    letterSpacing: 0,
+    lineHeight: 1.45,
+  },
+  'noto-sans-runic': {
+    label: 'Noto Sans Runic · runes (paste runic letters)',
+    family: 'Stele Noto Sans Runic',
+    weight: '400',
+    files: [
+      { url: runicLatin, unicodeRange: LATIN },
+      { url: runicRunic, unicodeRange: RUNIC },
+    ],
+    connected: false,
+    letterSpacing: 0.08,
+    lineHeight: 1.4,
   },
 } satisfies Record<string, FontDef>;
 

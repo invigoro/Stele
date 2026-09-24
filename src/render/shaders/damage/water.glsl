@@ -1,19 +1,17 @@
 // Water stains: irregular blotches with a dark tideline where the water dried, read
-// from the features texture (row 2: x, y, radius, strength; row 3: seed).
-
-const int MAX_STAINS = 64;
+// from the features texture (STAIN_ROW: x, y, radius, strength; +1: seed).
 
 struct Water {
-  float wet;  // 0..1, how soaked the paper got
+  float wet;  // 0..1, how soaked the sheet got
   float tide; // 0..1, darkening from tidelines
 };
 
 Water waterAt(vec2 p) {
   Water water = Water(0.0, 0.0);
-  for (int i = 0; i < MAX_STAINS; i++) {
+  for (int i = 0; i < MAX_FEATURES; i++) {
     if (i >= u_stainCount) break;
-    vec4 stain = texelFetch(u_features, ivec2(i, 2), 0);
-    float seed = texelFetch(u_features, ivec2(i, 3), 0).x;
+    vec4 stain = texelFetch(u_features, ivec2(i, STAIN_ROW), 0);
+    float seed = texelFetch(u_features, ivec2(i, STAIN_ROW + 1), 0).x;
     vec2 q = p - stain.xy;
     float r = length(q);
     if (r > stain.z * 1.6) continue;

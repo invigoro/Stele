@@ -9,13 +9,16 @@
  *   fade=0,0.5,1       fade levels (rows)
  *   damage=0,0.5,1     damage levels (columns)
  *   text=…             replace the sample text
+ *   variant=…          colour variant, writing method and shape, where the medium
+ *   method=…           has them (e.g. variant=nero&method=gilt&shape=tabula)
+ *   shape=…
  *   crop=x,y,w,h       instead of a grid, one render at print resolution cropped to this
  *   dpi=300            region (mm, from the object's top-left), at fade[0] and damage[0]
  */
 import { DistanceField } from '../render/distanceField';
 import { createContext, Gpu } from '../render/gl';
 import { imageSize, SceneRenderer, WHITE } from '../render/renderer';
-import { MEDIA, isMediumId, type MediumId } from '../media/media';
+import { MEDIA, isMediumId, type MediumDef, type MediumId } from '../media/media';
 import { buildScene } from '../scene';
 import { defaultSettings } from '../settings';
 import { FONTS, loadFont, measureFont } from '../text/fonts';
@@ -53,13 +56,20 @@ async function main(): Promise<void> {
   const cellWidth = Number(params.get('width') ?? 320);
 
   for (const medium of media) {
+    const def: MediumDef = MEDIA[medium];
     const text = params.get('text');
     const base = { ...defaultSettings(medium, seeds), ...(text ? { text, textEdited: true } : {}) };
+    const variant = params.get('variant');
+    if (variant && variant in def.variants) base.variant = variant;
+    const method = params.get('method');
+    if (method && (def.methods as string[]).includes(method)) base.method = method as typeof base.method;
+    const shape = params.get('shape');
+    if (shape && (def.shapes as string[]).includes(shape)) base.shape = shape as typeof base.shape;
     const font = FONTS[base.font];
     await loadFont(font);
     const measure = measureFont(font);
     const heading = document.createElement('h2');
-    heading.textContent = MEDIA[medium].label;
+    heading.textContent = `${def.label} · ${def.variants[base.variant].label} · ${base.method} · ${base.shape}`;
     sheet.append(heading);
 
     const crop = params.get('crop')?.split(',').map(Number);

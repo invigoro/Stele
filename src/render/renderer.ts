@@ -1,5 +1,8 @@
 import { FEATURE_ROWS, MAX_FEATURES, packFeatures } from '../damage/features';
+import { rasterizeCracks } from '../damage/rasterizeCracks';
 import { lightDirection } from '../media/media';
+import { shapeParams, SHAPES } from '../media/shapes';
+import { WRITING_CODES } from '../media/writing';
 import type { Scene } from '../scene';
 import { rasterizeText } from '../text/rasterize';
 import type { DistanceField } from './distanceField';
@@ -29,19 +32,27 @@ export function imageSize(scene: Scene, pxPerMm: number): { width: number; heigh
   };
 }
 
+interface Targets {
+  distance: Target;
+  cracks: Target;
+  surface: MultiTarget;
+  output: Target;
+}
+
 /**
  * Renders scenes into an image texture, redoing only the stages whose inputs changed:
- * text rasterizing and the distance field only when the text or size does.
+ * text and cracks are rasterized, and their distance fields computed, only when they
+ * or the image size change.
  */
 export class SceneRenderer {
   private readonly gpu: Gpu;
   private readonly distanceField: DistanceField;
-  private readonly maskCanvas = document.createElement('canvas');
+  private readonly canvas = document.createElement('canvas');
   private mask: WebGLTexture | null = null;
+  private crackMask: WebGLTexture | null = null;
   private features: WebGLTexture | null = null;
-  private targets: { distance: Target; surface: MultiTarget; output: Target } | null = null;
-  private maskKey = '';
-  private featuresKey = '';
+  private targets: Targets | null = null;
+  private keys = { mask: '', cracks: '', features: '' };
 
   constructor(gpu: Gpu, distanceField: DistanceField) {
     this.gpu = gpu;
@@ -54,23 +65,34 @@ export class SceneRenderer {
     const { width, height } = imageSize(scene, pxPerMm);
     const targets = this.targetsFor(width, height);
     const originMm: [number, number] = [-scene.margin, -scene.margin];
+    const raster = { originMm, pxPerMm, width, height };
 
     const maskKey = JSON.stringify([scene.font.family, scene.drawing, width, height, pxPerMm]);
-    if (maskKey !== this.maskKey || !this.mask) {
-      rasterizeText(scene.drawing, scene.font, { originMm, pxPerMm, width, height }, this.maskCanvas);
-      this.mask = uploadCanvas(gl, this.mask, this.maskCanvas);
+    if (maskKey !== this.keys.mask || !this.mask) {
+      rasterizeText(scene.drawing, scene.font, raster, this.canvas);
+      this.mask = uploadCanvas(gl, this.mask, this.canvas);
       this.distanceField.compute(this.mask, targets.distance, 1 / pxPerMm);
-      this.maskKey = maskKey;
+      this.keys.mask = maskKey;
     }
 
-    const packed = packFeatures(scene.chips, scene.stains);
-    const featuresKey = JSON.stringify([scene.chips, scene.stains]);
-    if (featuresKey !== this.featuresKey || !this.features) {
+    const hasCracks = scene.cracks.length > 0;
+    const cracksKey = JSON.stringify([scene.cracks, width, height, pxPerMm]);
+    if (hasCracks && cracksKey !== this.keys.cracks) {
+      rasterizeCracks(scene.cracks, raster, this.canvas);
+      this.crackMask = uploadCanvas(gl, this.crackMask, this.canvas);
+      this.distanceField.compute(this.crackMask, targets.cracks, 1 / pxPerMm);
+      this.keys.cracks = cracksKey;
+    }
+
+    const packed = packFeatures(scene.features);
+    const featuresKey = JSON.stringify(scene.features);
+    if (featuresKey !== this.keys.features || !this.features) {
       this.features = uploadFloatData(gl, this.features, packed.data, MAX_FEATURES, FEATURE_ROWS);
-      this.featuresKey = featuresKey;
+      this.keys.features = featuresKey;
     }
 
-    const { medium } = scene;
+    const { medium, method, fields } = scene;
+    const color = method.color ?? [0, 0, 0];
     gpu.draw(gpu.program(`surface:${medium.shader}`, () => surfaceShader(medium.shader)), targets.surface, {
       u_sizeMm: [scene.width, scene.height],
       u_originMm: originMm,
@@ -79,25 +101,50 @@ export class SceneRenderer {
       u_fadeSeed: scene.offsets.fade,
       u_damageSeed: scene.offsets.damage,
       u_fade: scene.fade,
-      u_damage: scene.damage,
       u_textSize: scene.drawing.runs.length > 0 ? scene.drawing.size : 0,
+      u_palette: scene.palette.flat(),
+      u_grain: medium.grain ?? 0,
+      u_writing: WRITING_CODES[method.kind],
+      u_flatCut: method.flat ? 1 : 0,
+      u_fill: method.fill ? 1 : 0,
+      u_gilt: method.gilt ? 1 : 0,
+      u_writingColor: color,
+      u_writingAged: method.aged ?? color,
+      u_shape: SHAPES[scene.shape].code,
+      u_shapeParams: shapeParams(scene.shape, scene.width, scene.height),
       u_textDistance: targets.distance.texture,
       u_textMask: this.mask,
       u_features: this.features,
-      u_chipCount: packed.chipCount,
-      u_stainCount: packed.stainCount,
+      u_chipCount: packed.counts.chips,
+      u_stainCount: packed.counts.stains,
+      u_holeCount: packed.counts.holes,
+      u_burnCount: packed.counts.burns,
+      u_tearCount: packed.counts.tears,
+      u_foldCount: packed.counts.folds,
+      u_smudgeCount: packed.counts.smudges,
+      u_cutCount: packed.counts.cuts,
+      u_crackDistance: targets.cracks.texture,
+      u_hasCracks: hasCracks ? 1 : 0,
+      u_soot: fields.soot,
+      u_lichen: fields.lichen,
+      u_pitting: fields.pitting,
+      u_flaking: fields.flaking,
+      u_rot: fields.rot,
+      u_foxing: fields.foxing,
+      u_fraying: fields.fraying,
+      u_darkening: fields.darkening,
     });
 
-    const { light } = medium;
-    const direction = lightDirection(light);
+    const { light } = scene;
     // Look far enough toward the lamp to catch shadows from the deepest relief.
-    const relief = 0.15 * scene.drawing.size + (scene.chips.length > 0 ? 6 : 0.5);
+    const deepDamage = scene.features.chips.length > 0 || scene.features.cuts.length > 0 || fields.flaking > 0;
+    const relief = 0.15 * scene.drawing.size + (deepDamage ? 6 : 1) + (hasCracks ? 2.5 : 0);
     const shadowReach = Math.min(30, relief / Math.tan((light.elevation * Math.PI) / 180));
     gpu.draw(gpu.program('shade', () => shaderSource('shade.frag')), targets.output, {
       u_surface: targets.surface.textures[0],
       u_albedo: targets.surface.textures[1],
       u_pxPerMm: pxPerMm,
-      u_lightDir: direction,
+      u_lightDir: lightDirection(light),
       u_ambient: light.ambient,
       u_diffuse: light.diffuse,
       u_specular: light.specular,
@@ -123,15 +170,14 @@ export class SceneRenderer {
   dispose(): void {
     const { gl } = this.gpu;
     this.releaseTargets();
-    if (this.mask) gl.deleteTexture(this.mask);
-    if (this.features) gl.deleteTexture(this.features);
+    for (const texture of [this.mask, this.crackMask, this.features]) if (texture) gl.deleteTexture(texture);
     this.mask = null;
+    this.crackMask = null;
     this.features = null;
-    this.maskKey = '';
-    this.featuresKey = '';
+    this.keys = { mask: '', cracks: '', features: '' };
   }
 
-  private targetsFor(width: number, height: number) {
+  private targetsFor(width: number, height: number): Targets {
     if (this.targets && (this.targets.output.width !== width || this.targets.output.height !== height)) {
       this.releaseTargets();
     }
@@ -139,10 +185,13 @@ export class SceneRenderer {
       const { gl } = this.gpu;
       this.targets = {
         distance: createTarget(gl, width, height, 'r16f'),
+        cracks: createTarget(gl, width, height, 'r16f'),
         surface: createMultiTarget(gl, width, height, ['rgba16f', 'rgba8']),
         output: createTarget(gl, width, height, 'rgba8'),
       };
-      this.maskKey = ''; // the distance field must be recomputed into the new target
+      // The distance fields must be recomputed into the new targets.
+      this.keys.mask = '';
+      this.keys.cracks = '';
     }
     return this.targets;
   }
@@ -150,9 +199,7 @@ export class SceneRenderer {
   private releaseTargets(): void {
     if (!this.targets) return;
     const { gl } = this.gpu;
-    deleteTarget(gl, this.targets.distance);
-    deleteTarget(gl, this.targets.surface);
-    deleteTarget(gl, this.targets.output);
+    for (const target of Object.values(this.targets)) deleteTarget(gl, target);
     this.targets = null;
   }
 }
