@@ -29,6 +29,9 @@ export interface Run {
   scale: number;
   /** Ink density: 1 right after dipping the pen. */
   density: number;
+  /** Which characters of the laid-out text this run draws (UTF-16 offset and length). */
+  source: number;
+  length: number;
 }
 
 export interface Drawing {
@@ -86,6 +89,8 @@ export function drawText(layout: TextLayout, measure: Measure, hand: Hand, seed:
         rotation: jitter(hand.rotation) * DEGREES,
         scale: 1 + jitter(hand.scale),
         density,
+        source: line.start + chars.slice(0, index).join('').length,
+        length: text.length,
       });
     };
 

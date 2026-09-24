@@ -123,6 +123,23 @@ export function textArea(options: {
   return field(options.label, id, element);
 }
 
+export function checkbox(options: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
+  const wrapper = create('label', 'checkbox');
+  const input = create('input');
+  input.type = 'checkbox';
+  input.checked = options.checked;
+  input.addEventListener('change', () => options.onChange(input.checked));
+  wrapper.append(input, document.createTextNode(options.label));
+  return wrapper;
+}
+
+/** A short explanatory note under a field. */
+export function hint(html: string): HTMLElement {
+  const element = create('p', 'hint');
+  element.innerHTML = html;
+  return element;
+}
+
 export function button(label: string, onClick: () => void, options: { title?: string; className?: string } = {}) {
   const element = create('button', options.className, label);
   element.type = 'button';

@@ -16,6 +16,7 @@
 #include "../damage/burns.glsl"
 #include "../damage/folds.glsl"
 #include "../damage/smudges.glsl"
+#include "../damage/blots.glsl"
 
 // Age spots: small rust-brown specks that gather in clusters.
 float foxingAt(vec2 p) {
@@ -55,8 +56,9 @@ void buildSurface(vec2 p, inout Surface s) {
   float tornEdge = 1.0 - smoothstep(0.0, 0.8, min(torn, holes));
   s.albedo = mix(s.albedo, min(s.albedo * 1.06 + 0.03, vec3(1.0)), 0.7 * tornEdge);
 
-  s.albedo = mix(s.albedo, s.albedo * vec3(0.72, 0.52, 0.34), 0.7 * foxingAt(p));
-  s.albedo = mix(s.albedo, s.albedo * vec3(0.7, 0.58, 0.44), darkeningAt(p, edges));
+  float open = 1.0 - shielded(p);
+  s.albedo = mix(s.albedo, s.albedo * vec3(0.72, 0.52, 0.34), 0.7 * foxingAt(p) * open);
+  s.albedo = mix(s.albedo, s.albedo * vec3(0.7, 0.58, 0.44), darkeningAt(p, edges) * open);
 
   Water water = waterAt(p);
   s.albedo *= mix(vec3(1.0), u_palette[2] / max(u_palette[0], vec3(0.01)), water.wet);
@@ -81,6 +83,8 @@ void buildSurface(vec2 p, inout Surface s) {
     s.albedo *= 1.0 - 0.08 * smudge.amount; // a greasy grey smear on the sheet itself
   }
   ink *= 1.0 - 0.8 * folds.wear;
+  // A blot is one even pool of ink: nothing written underneath shows through it.
+  ink = mix(ink, 0.96, blotsAt(p));
   // Dissolved ink spreads browner than it dried.
   vec3 tone = mix(inkColor(), vec3(0.42, 0.33, 0.26), 0.6 * water.wet);
   s.albedo = mix(s.albedo, s.albedo * tone, ink);

@@ -162,7 +162,17 @@ describe('damageAmounts', () => {
 });
 
 describe('packFeatures', () => {
-  const empty: Features = { chips: [], stains: [], holes: [], burns: [], tears: [], folds: [], smudges: [], cuts: [] };
+  const empty: Features = {
+    chips: [],
+    stains: [],
+    holes: [],
+    burns: [],
+    tears: [],
+    folds: [],
+    smudges: [],
+    cuts: [],
+    blots: [],
+  };
 
   it('writes each kind into its own pair of rows', () => {
     const packed = packFeatures({

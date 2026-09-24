@@ -110,3 +110,62 @@ describe('changeMedium', () => {
     expect(wood.light).toBeNull();
   });
 });
+
+describe('damage markup', () => {
+  it('destroys [[marked]] words in a way that suits each medium', () => {
+    const text = 'THE KEY LIES BENEATH THE [[ALTAR]]';
+    const marble = scene('marble', { text, damage: 0 });
+    expect(marble.drawing.runs.map((run) => run.text).join('')).toBe('THEKEYLIESBENEATHTHEALTAR');
+    expect(marble.features.chips).toHaveLength(1);
+    expect(scene('paper', { text, damage: 0 }).features.blots).toHaveLength(1);
+    expect(scene('papyrus', { text, damage: 0 }).features.holes).toHaveLength(1);
+    expect(scene('wood', { text, damage: 0 }).features.chips).toHaveLength(1);
+  });
+
+  it('keeps random damage off {{protected}} words', () => {
+    const protectedScene = scene('marble', { text: '{{DIS MANIBVS GAIO IVLIO FELICI VIXIT ANNOS}}' });
+    expect(protectedScene.protect.length).toBeGreaterThan(0);
+    for (const chip of protectedScene.features.chips) {
+      for (const box of protectedScene.protect) {
+        const dx = Math.max(box.x - chip.x, 0, chip.x - (box.x + box.width));
+        const dy = Math.max(box.y - chip.y, 0, chip.y - (box.y + box.height));
+        expect(Math.hypot(dx, dy)).toBeGreaterThan(chip.radius);
+      }
+    }
+  });
+});
+
+describe('text and size options', () => {
+  it('uses Roman letter forms when asked', () => {
+    const roman = scene('marble', { text: 'Julius', roman: true, damage: 0 });
+    expect(roman.drawing.runs.map((run) => run.text).join('')).toBe('IVLIVS');
+  });
+
+  it('scales the object', () => {
+    const small = scene('marble', { objectScale: 0.5, damage: 0 });
+    expect([small.width, small.height]).toEqual([MEDIA.marble.width / 2, MEDIA.marble.height / 2]);
+  });
+});
+
+describe('obliteration coverage', () => {
+  it('covers every letter of a marked phrase with its blot', () => {
+    const text = 'We are sealing the [[northern shaft]] tonight.';
+    const built = scene('paper', { text, damage: 0 });
+    const [blot] = built.features.blots;
+    expect(blot).toBeDefined();
+    const start = 'We are sealing the '.length;
+    const marked = built.drawing.runs.filter((run) => run.source >= start && run.source < start + 'northern shaft'.length);
+    expect(marked.map((run) => run.text).join('')).toBe('northernshaft');
+    const size = built.drawing.size;
+    for (const run of marked) {
+      for (const [x, y] of [
+        [run.x, run.y - mono.ascent * size],
+        [run.x + mono.width(run.text) * size, run.y + mono.descent * size],
+      ]) {
+        const qx = (x - blot.x) / blot.rx;
+        const qy = (y - blot.y) / blot.ry;
+        expect(Math.sqrt(Math.sqrt(qx ** 4 + qy ** 4))).toBeLessThan(1);
+      }
+    }
+  });
+});

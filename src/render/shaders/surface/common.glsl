@@ -31,6 +31,7 @@ const int TEAR_ROW = 8;
 const int FOLD_ROW = 10;
 const int SMUDGE_ROW = 12;
 const int CUT_ROW = 14;
+const int BLOT_ROW = 16;
 
 uniform vec2 u_sizeMm;       // object size
 uniform vec2 u_originMm;     // position of the render target's top-left corner
@@ -69,6 +70,10 @@ uniform int u_tearCount;
 uniform int u_foldCount;
 uniform int u_smudgeCount;
 uniform int u_cutCount;
+uniform int u_blotCount;
+// Areas kept clear of spread-out damage (words marked {{like this}}): x0, y0, x1, y1 in mm.
+uniform vec4 u_protect[8];
+uniform int u_protectCount;
 uniform sampler2D u_crackDistance; // signed distance to cracks in mm, > 0 inside
 uniform float u_hasCracks;
 // Damage spread across the surface, 0..1 each.
@@ -109,6 +114,18 @@ float coverageFrom(float inside) {
 // This keeps a small preview clean while a 300 DPI print keeps the fine grain.
 float detail(float size) {
   return smoothstep(2.0, 4.0, size * u_pxPerMm);
+}
+
+// 1 inside a protected area, fading out over a few mm around it.
+float shielded(vec2 p) {
+  float shield = 0.0;
+  for (int i = 0; i < 8; i++) {
+    if (i >= u_protectCount) break;
+    vec4 area = u_protect[i];
+    vec2 outside = max(area.xy - p, p - area.zw);
+    shield = max(shield, 1.0 - smoothstep(0.0, 3.0, max(outside.x, outside.y)));
+  }
+  return shield;
 }
 
 float hash1(float n) {

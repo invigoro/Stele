@@ -10,8 +10,8 @@ const layout: TextLayout = {
   size: 10,
   letterSpacing: 0.1,
   lines: [
-    { text: 'AB CD', x: 5, baseline: 20, width: 0 },
-    { text: 'EFG', x: 5, baseline: 35, width: 0 },
+    { text: 'AB CD', start: 0, x: 5, baseline: 20, width: 0 },
+    { text: 'EFG', start: 6, x: 5, baseline: 35, width: 0 },
   ],
 };
 
@@ -23,6 +23,22 @@ describe('drawText', () => {
     expect(runs.map((run) => run.x)).toEqual([5, 11, 23, 29, 5, 11, 17]);
     expect(runs.every((run) => run.rotation === 0 && run.scale === 1)).toBe(true);
     expect(runs.slice(0, 4).every((run) => run.y === 20)).toBe(true);
+  });
+
+  it('records which characters each run draws', () => {
+    const { runs } = drawText(layout, mono, steady, 1);
+    // Line two starts at offset 6 of the laid-out text "AB CD\nEFG".
+    expect(runs.map((run) => [run.source, run.length])).toEqual([
+      [0, 1],
+      [1, 1],
+      [3, 1],
+      [4, 1],
+      [6, 1],
+      [7, 1],
+      [8, 1],
+    ]);
+    const words = drawText(layout, mono, { ...steady, perGlyph: false }, 1).runs;
+    expect(words.map((run) => [run.source, run.length])).toEqual([[0, 2], [3, 2], [6, 3]]);
   });
 
   it('draws whole words for joined scripts', () => {
@@ -49,7 +65,7 @@ describe('drawText', () => {
   });
 
   it('thins the ink between dips of the pen', () => {
-    const long: TextLayout = { size: 5, letterSpacing: 0, lines: [{ text: 'word '.repeat(40), x: 0, baseline: 5, width: 0 }] };
+    const long: TextLayout = { size: 5, letterSpacing: 0, lines: [{ text: 'word '.repeat(40), start: 0, x: 0, baseline: 5, width: 0 }] };
     const densities = drawText(long, mono, { ...steady, perGlyph: false, dipPen: true }, 11).runs.map((run) => run.density);
     expect(densities[0]).toBe(1);
     expect(Math.min(...densities)).toBeGreaterThanOrEqual(0.3);

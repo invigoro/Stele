@@ -1,0 +1,106 @@
+import { defaultSettings, type Seeds, type Settings } from './settings';
+
+export interface Preset {
+  label: string;
+  /** Everything else comes from the medium's defaults. */
+  settings: Partial<Settings> & Pick<Settings, 'medium'>;
+}
+
+/** Ready-made handouts to start from. */
+export const PRESETS: Preset[] = [
+  {
+    label: 'Roman epitaph',
+    settings: {
+      medium: 'marble',
+      shape: 'tabula',
+      method: 'filled-red',
+      text: 'DIS MANIBVS\nGAIO IVLIO FELICI\nVIXIT ANNOS XXXV\nH · S · E',
+      damage: 0.45,
+      fade: 0.35,
+    },
+  },
+  {
+    label: 'Burnt letter',
+    settings: {
+      medium: 'paper',
+      shape: 'torn',
+      variant: 'aged',
+      text:
+        'My dearest Eleanor,\n\nIf this reaches you, the house is lost. Take the children to your ' +
+        'sister’s and do not open the cellar, whatever you hear from below.\n\nForgive me,\nThomas',
+      damage: 0.8,
+      damageMix: { burns: 1, water: 0.2, folds: 0.6, smudges: 0.3, foxing: 0.4, tears: 0.2 },
+      fade: 0.25,
+    },
+  },
+  {
+    label: 'Papyrus fragment',
+    settings: { medium: 'papyrus', damage: 0.7, fade: 0.4 },
+  },
+  {
+    label: 'Tavern sign',
+    settings: { medium: 'wood', method: 'gilt', variant: 'walnut', damage: 0.3, fade: 0.25 },
+  },
+  {
+    label: 'Weathered gravestone',
+    settings: {
+      medium: 'slate',
+      shape: 'stele',
+      damage: 0.6,
+      damageMix: { chips: 0.3, breaks: 0.4, cracks: 0.5, flaking: 0.5, lichen: 0.9 },
+      fade: 0.5,
+    },
+  },
+  {
+    label: 'Dwarven waystone',
+    settings: {
+      medium: 'granite',
+      shape: 'fragment',
+      font: 'noto-sans-runic',
+      // Elder Futhark: HERE LIES THE ROAD TO THE DEEP HALLS.
+      text: 'ᚺᛖᚱᛖ ᛚᛁᛖᛋ ᚦᛖ ᚱᛟᚨᛞ\nᛏᛟ ᚦᛖ ᛞᛖᛖᛈ ᚺᚨᛚᛚᛋ',
+      damage: 0.5,
+      fade: 0.3,
+    },
+  },
+  {
+    label: 'Royal decree',
+    settings: { medium: 'parchment', font: 'unifrakturmaguntia', damage: 0.3, fade: 0.2 },
+  },
+  {
+    label: 'Expedition log',
+    settings: {
+      medium: 'paper',
+      variant: 'aged',
+      font: 'special-elite',
+      method: 'carbon-ink',
+      text:
+        'EXPEDITION LOG — DAY 41\n\nThe survey party has not returned from the lower galleries. ' +
+        'Water is rising in camp. We are sealing the [[northern shaft]] tonight.\n\n— R. Hale',
+      damage: 0.6,
+      damageMix: { water: 1, folds: 0.4, foxing: 0.6, smudges: 0.2 },
+      fade: 0.3,
+    },
+  },
+  {
+    label: 'Cursed tomb door',
+    settings: {
+      medium: 'sandstone',
+      shape: 'fragment',
+      text: 'WHOSOEVER BREAKS\nTHIS SEAL SHALL\n[[WALK FOREVER]]\nIN THE DARK',
+      damage: 0.55,
+      fade: 0.45,
+    },
+  },
+];
+
+/** A preset's settings, with the medium's defaults for everything it leaves out. */
+export function applyPreset(preset: Preset, seeds: Seeds): Settings {
+  const base = defaultSettings(preset.settings.medium, seeds);
+  return {
+    ...base,
+    ...preset.settings,
+    damageMix: { ...base.damageMix, ...preset.settings.damageMix },
+    textEdited: preset.settings.text !== undefined,
+  };
+}

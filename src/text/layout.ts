@@ -40,6 +40,8 @@ export interface LayoutOptions {
 
 export interface LaidOutLine {
   text: string;
+  /** Where the line's text starts in the laid-out text (UTF-16 offset). */
+  start: number;
   /** Left end of the line's text. */
   x: number;
   baseline: number;
@@ -158,11 +160,16 @@ export function layoutText(options: LayoutOptions, measure: Measure): TextLayout
   const height = blockHeight(texts.length, size, measure, lineHeight);
   const top = verticalAlign === 'top' ? box.y : box.y + (box.height - height) / 2;
 
+  // Wrapping only drops whitespace, so each line is found, in order, in the text.
+  let cursor = 0;
   const lines = texts.map((line, i) => {
+    const found = text.indexOf(line, cursor);
+    const start = found >= 0 ? found : cursor;
+    cursor = start + line.length;
     const width = lineWidth(line, size, measure, letterSpacing);
     const x =
       align === 'left' ? box.x : align === 'right' ? box.x + box.width - width : box.x + (box.width - width) / 2;
-    return { text: line, x, baseline: top + (measure.ascent + i * lineHeight) * size, width };
+    return { text: line, start, x, baseline: top + (measure.ascent + i * lineHeight) * size, width };
   });
   return { size, letterSpacing, lines };
 }

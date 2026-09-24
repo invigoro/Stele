@@ -23,8 +23,10 @@ float inkAmount(vec2 p, float wet) {
   float patchy = 0.5 + 0.5 * fbm(p / 30.0 + u_fadeSeed, 3);
   float wear = clamp(u_fade * (0.3 + 0.9 * patchy), 0.0, 1.0);
 
+  // Pen pressure: strokes swell and thin along their length, as a nib's line does.
+  float pressure = 0.012 * u_textSize * snoise(p / (0.9 * max(u_textSize, 1.0)) + u_materialSeed * 3.0);
   // Dry ink: crisp edges, a little darker along them where it pooled.
-  float d = textDistance(w) - wear * 0.035 * u_textSize;
+  float d = textDistance(w) + pressure - wear * 0.035 * u_textSize;
   float dry = smoothstep(-0.6 * px, 0.6 * px, d);
   float pooled = 1.0 + 0.2 * (1.0 - smoothstep(0.0, 0.06 * u_textSize + px, d));
   float density = inkDensity(w) * pooled;

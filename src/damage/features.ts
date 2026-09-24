@@ -5,7 +5,7 @@ export const MAX_FEATURES = 64;
 
 /**
  * Texture rows for each kind of feature, two texels per feature. Must match the
- * *_ROW constants in the damage shaders.
+ * *_ROW constants in surface/common.glsl.
  */
 export const FEATURE_LAYOUT = {
   chips: 0,
@@ -16,9 +16,10 @@ export const FEATURE_LAYOUT = {
   folds: 10,
   smudges: 12,
   cuts: 14,
+  blots: 16,
 } as const satisfies Record<keyof Features, number>;
 
-export const FEATURE_ROWS = 16;
+export const FEATURE_ROWS = 18;
 
 export interface PackedFeatures {
   /** RGBA float texels, MAX_FEATURES wide and FEATURE_ROWS tall. */
@@ -36,6 +37,7 @@ const encoders: { [K in keyof Features]: (feature: Features[K][number]) => numbe
   folds: (f) => [f.ax, f.ay, f.bx, f.by, f.seed, f.strength, 0, 0],
   smudges: (s) => [s.x, s.y, s.radius, s.angle, s.seed, s.strength, s.length, 0],
   cuts: (c) => [c.ax, c.ay, c.bx, c.by, c.seed, 0, 0, 0],
+  blots: (b) => [b.x, b.y, b.rx, b.ry, b.seed, 0, 0, 0],
 };
 
 /** Lays damage features out as texels for the surface shaders (see damage/*.glsl). */

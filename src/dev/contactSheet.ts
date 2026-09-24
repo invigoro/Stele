@@ -8,6 +8,7 @@
  *   seed=1             base seed for every random aspect
  *   fade=0,0.5,1       fade levels (rows)
  *   damage=0,0.5,1     damage levels (columns)
+ *   preset=3           start from this preset (index into PRESETS) instead of the defaults
  *   text=…             replace the sample text
  *   variant=…          colour variant, writing method and shape, where the medium
  *   method=…           has them (e.g. variant=nero&method=gilt&shape=tabula)
@@ -20,6 +21,7 @@ import { createContext, Gpu } from '../render/gl';
 import { imageSize, SceneRenderer, WHITE } from '../render/renderer';
 import { MEDIA, isMediumId, type MediumDef, type MediumId } from '../media/media';
 import { buildScene } from '../scene';
+import { applyPreset, PRESETS } from '../presets';
 import { defaultSettings } from '../settings';
 import { FONTS, loadFont, measureFont } from '../text/fonts';
 
@@ -47,7 +49,8 @@ function figure(canvas: HTMLCanvasElement, caption: string): HTMLElement {
 async function main(): Promise<void> {
   const gpu = new Gpu(createContext(document.createElement('canvas')));
   const renderer = new SceneRenderer(gpu, new DistanceField(gpu));
-  const requested = params.get('medium');
+  const preset = params.has('preset') ? PRESETS[Number(params.get('preset'))] : undefined;
+  const requested = preset?.settings.medium ?? params.get('medium');
   const media: MediumId[] = requested && isMediumId(requested) ? [requested] : (Object.keys(MEDIA) as MediumId[]);
   const seed = Number(params.get('seed') ?? 1);
   const seeds = { material: seed, hand: seed + 1, damage: seed + 2, fade: seed + 3 };
@@ -58,7 +61,8 @@ async function main(): Promise<void> {
   for (const medium of media) {
     const def: MediumDef = MEDIA[medium];
     const text = params.get('text');
-    const base = { ...defaultSettings(medium, seeds), ...(text ? { text, textEdited: true } : {}) };
+    const start = preset ? applyPreset(preset, seeds) : defaultSettings(medium, seeds);
+    const base = { ...start, ...(text ? { text, textEdited: true } : {}) };
     const variant = params.get('variant');
     if (variant && variant in def.variants) base.variant = variant;
     const method = params.get('method');

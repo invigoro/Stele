@@ -32,6 +32,18 @@ export function imageSize(scene: Scene, pxPerMm: number): { width: number; heigh
   };
 }
 
+/** How many protected areas the shaders take (u_protect in surface/common.glsl). */
+const MAX_PROTECTED = 8;
+
+/** Protected areas as x0, y0, x1, y1 (mm), padded a little, for u_protect. */
+function protectRects(scene: Scene): Float32Array {
+  const rects = new Float32Array(MAX_PROTECTED * 4);
+  scene.protect.slice(0, MAX_PROTECTED).forEach((box, i) => {
+    rects.set([box.x - 1, box.y - 1, box.x + box.width + 1, box.y + box.height + 1], i * 4);
+  });
+  return rects;
+}
+
 interface Targets {
   distance: Target;
   cracks: Target;
@@ -123,6 +135,9 @@ export class SceneRenderer {
       u_foldCount: packed.counts.folds,
       u_smudgeCount: packed.counts.smudges,
       u_cutCount: packed.counts.cuts,
+      u_blotCount: packed.counts.blots,
+      u_protect: protectRects(scene),
+      u_protectCount: Math.min(scene.protect.length, MAX_PROTECTED),
       u_crackDistance: targets.cracks.texture,
       u_hasCracks: hasCracks ? 1 : 0,
       u_soot: fields.soot,

@@ -29,6 +29,12 @@ export interface Settings {
   align: Align;
   /** Fraction (0.3–1) of the largest text size that fits. */
   textScale: number;
+  /** Classical Roman letter forms: capitals, V for U, I for J, dots between words. */
+  roman: boolean;
+  /** Size of the object relative to the medium's usual size (0.5–1.5). */
+  objectScale: number;
+  /** Download PNGs with a transparent background instead of white. */
+  transparent: boolean;
   /** Overall damage, 0–1; `damageMix` weights each type. */
   damage: number;
   damageMix: DamageMix;
@@ -55,6 +61,9 @@ export function defaultSettings(medium: MediumId, seeds: Seeds = randomSeeds()):
     font: def.font,
     align: def.align,
     textScale: 1,
+    roman: false,
+    objectScale: 1,
+    transparent: false,
     damage: 0.3,
     damageMix: { ...def.damage },
     fade: 0.2,
@@ -63,13 +72,19 @@ export function defaultSettings(medium: MediumId, seeds: Seeds = randomSeeds()):
   };
 }
 
-/** Switches medium, taking its defaults; keeps the text if it was edited, and the wear. */
+/**
+ * Switches medium, taking its defaults; keeps the text if it was edited, the wear, and
+ * the output choices.
+ */
 export function changeMedium(settings: Settings, medium: MediumId): Settings {
   const next = defaultSettings(medium, settings.seeds);
   return {
     ...next,
     text: settings.textEdited ? settings.text : next.text,
     textEdited: settings.textEdited,
+    roman: settings.roman,
+    objectScale: settings.objectScale,
+    transparent: settings.transparent,
     damage: settings.damage,
     fade: settings.fade,
   };

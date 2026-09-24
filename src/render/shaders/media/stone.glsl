@@ -31,6 +31,8 @@ void buildSurface(vec2 p, inout Surface s) {
 
   stoneFace(p, s);
   s.albedo = mix(s.albedo, freshStone(s.albedo), 0.8 * breakFace);
+  // The face before any lettering: where damage takes the surface away, the letters' colour goes with it.
+  vec3 faceColor = s.albedo;
 
   // Weathering: the face wears down unevenly and roughens.
   float patchy = 0.5 + 0.5 * fbm(p / 45.0 + u_fadeSeed, 3);
@@ -61,19 +63,22 @@ void buildSurface(vec2 p, inout Surface s) {
     }
   }
 
+  // Spread-out damage stays off protected words.
+  float open = 1.0 - shielded(p);
+
   // Flaking takes a whole layer off, lettering and all.
-  float flaked = flakesAt(p);
+  float flaked = flakesAt(p) * open;
   if (flaked > 0.0) {
     s.height = min(s.height, face - FLAKE_LAYER * flaked * (0.9 + 0.2 * snoise(p / 2.0 + u_damageSeed)));
-    s.albedo = mix(s.albedo, freshStone(s.albedo), 0.6 * flaked);
+    s.albedo = mix(s.albedo, freshStone(faceColor), flaked);
     s.roughness = mix(s.roughness, 0.9, flaked);
     s.metal *= 1.0 - flaked;
   }
-  s.height -= pitsAt(p);
+  s.height -= pitsAt(p) * open;
 
   Chipping chips = chipsAt(p);
   if (chips.depth > 0.0) s.height = min(s.height, face - chips.depth);
-  s.albedo = mix(s.albedo, freshStone(s.albedo), 0.8 * chips.fresh);
+  s.albedo = mix(s.albedo, freshStone(faceColor), chips.fresh);
   s.roughness = mix(s.roughness, 0.9, chips.fresh);
   s.metal *= 1.0 - chips.fresh;
   s.alpha *= 1.0 - chips.missing;
@@ -82,10 +87,11 @@ void buildSurface(vec2 p, inout Surface s) {
   s.height -= crackDepth(p, grime);
   s.albedo *= 1.0 - 0.55 * grime;
 
-  s.albedo *= mix(vec3(1.0), vec3(0.42, 0.4, 0.37), sootAt(p));
+  s.albedo *= mix(vec3(1.0), vec3(0.42, 0.4, 0.37), sootAt(p) * open);
 
   // Lichen grows over everything, partly filling the grooves.
   Growth lichen = lichenAt(p);
+  lichen.cover *= open;
   if (lichen.cover > 0.0) {
     s.height = mix(s.height, max(s.height, face - 0.6) + lichen.height, lichen.cover);
     s.albedo = mix(s.albedo, lichen.color, lichen.cover);

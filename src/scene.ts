@@ -2,6 +2,7 @@ import { generateBurns, type Burn } from './damage/burns';
 import { generateBreaks, generateChips, type Chip } from './damage/chips';
 import { generateCracks, type Crack } from './damage/cracks';
 import { generateHoles, type Hole } from './damage/holes';
+import { markedAreas, obliterate, protectAreas, type Blot } from './damage/marks';
 import {
   generateFolds,
   generateFragmentCuts,
@@ -20,6 +21,8 @@ import type { Settings } from './settings';
 import { FONTS, type FontDef } from './text/fonts';
 import { drawText, type Drawing } from './text/hand';
 import { layoutText, type Box, type Measure } from './text/layout';
+import { normalizeText, parseMarkup } from './text/markup';
+import { romanize } from './text/roman';
 import { mulberry32 } from './util/rng';
 
 /** Blank space around the object in the rendered image, mm. */
@@ -36,6 +39,8 @@ export interface Features {
   smudges: Smudge[];
   /** Big breaks that make a stone into a fragment. */
   cuts: Cut[];
+  /** Ink blots over words marked [[like this]]. */
+  blots: Blot[];
 }
 
 /** Damage computed across the whole surface in the shaders, by amount (0–1). */
@@ -65,6 +70,8 @@ export interface Scene {
   features: Features;
   cracks: Crack[];
   fields: FieldDamage;
+  /** Areas kept clear of spread-out damage: words marked {{like this}}. */
+  protect: Box[];
   fade: number;
   damage: number;
   light: Light;
@@ -94,12 +101,17 @@ export function buildScene(settings: Settings, measure: Measure): Scene {
   const font: FontDef = FONTS[settings.font];
   const method: MethodDef = METHODS[settings.method];
   const variant = medium.variants[settings.variant] ?? Object.values(medium.variants)[0];
-  const { width, height, thickness } = medium;
-  const box = textBox(settings.shape, width, height, medium.padding);
+  const scale = Math.min(1.5, Math.max(0.5, settings.objectScale));
+  const width = medium.width * scale;
+  const height = medium.height * scale;
+  const padding = { x: medium.padding.x * scale, y: medium.padding.y * scale };
+  const box = textBox(settings.shape, width, height, padding);
 
+  const source = normalizeText(settings.roman ? romanize(settings.text) : settings.text);
+  const { text, spans } = parseMarkup(source);
   const layout = layoutText(
     {
-      text: settings.text,
+      text,
       box,
       align: settings.align,
       verticalAlign: medium.verticalAlign,
@@ -107,18 +119,20 @@ export function buildScene(settings: Settings, measure: Measure): Scene {
       lineHeight: font.lineHeight,
       letterSpacing: font.letterSpacing,
       scale: settings.textScale,
-      maxSize: medium.maxTextSize,
+      maxSize: medium.maxTextSize * scale,
     },
     measure,
   );
   const hand = { ...medium.hand, perGlyph: medium.hand.perGlyph && !font.connected };
+  const drawing = drawText(layout, measure, hand, settings.seeds.hand);
+  const marks = markedAreas(drawing, spans, measure);
 
   const amounts = damageAmounts(settings.damage, settings.damageMix);
   const amount = (id: DamageId) => (id in medium.damage ? (amounts[id] ?? 0) : 0);
   const seed = (id: string) => seedFor(settings.seeds.damage, id);
-  const grain = medium.grain;
+  const { grain, thickness } = medium;
 
-  const features: Features = {
+  const random: Features = {
     chips: [
       ...generateChips(amount('chips'), width, height, seed('chips')),
       ...generateBreaks(amount('breaks'), width, height, thickness, seed('breaks')),
@@ -131,11 +145,19 @@ export function buildScene(settings: Settings, measure: Measure): Scene {
     folds: generateFolds(amount('folds'), width, height, seed('folds')),
     smudges: generateSmudges(amount('smudges'), box, seed('smudges')),
     cuts: settings.shape === 'fragment' ? generateFragmentCuts(width, height, seed('fragment')) : [],
+    blots: [],
   };
-  const cracks = [
+  const randomCracks = [
     ...generateCracks(amount('cracks'), width, height, seed('cracks')),
     ...(grain !== undefined ? generateCracks(amount('splits'), width, height, seed('splits'), { grain }) : []),
   ];
+
+  // Keep random damage off protected words, then make sure marked ones are destroyed.
+  const { features, cracks } = protectAreas(random, randomCracks, marks.protect, [width / 2, height / 2]);
+  const destroyed = obliterate(marks.destroy, medium.obliterate, drawing.size);
+  features.chips.push(...destroyed.chips);
+  features.blots.push(...destroyed.blots);
+  features.holes.push(...destroyed.holes);
 
   return {
     medium,
@@ -147,7 +169,7 @@ export function buildScene(settings: Settings, measure: Measure): Scene {
     height,
     margin: MARGIN_MM,
     textBox: box,
-    drawing: drawText(layout, measure, hand, settings.seeds.hand),
+    drawing,
     features,
     cracks,
     fields: {
@@ -160,6 +182,7 @@ export function buildScene(settings: Settings, measure: Measure): Scene {
       fraying: amount('fraying'),
       darkening: amount('darkening'),
     },
+    protect: marks.protect,
     fade: settings.fade,
     damage: settings.damage,
     light: { ...medium.light, ...(settings.light ?? {}) },

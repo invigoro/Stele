@@ -91,6 +91,17 @@ describe('layoutText', () => {
     expect(layout.lines[1].baseline - layout.lines[0].baseline).toBeCloseTo(15, 6);
   });
 
+  it('records where each line starts in the text', () => {
+    const text = 'AB CD EF\nGH';
+    const layout = layoutText(options({ text, box: { x: 0, y: 0, width: 2.5, height: 100 }, maxSize: 1 }), mono);
+    expect(layout.lines.map((line) => [line.text, line.start])).toEqual([
+      ['AB CD', 0],
+      ['EF', 6],
+      ['GH', 9],
+    ]);
+    for (const line of layout.lines) expect(text.slice(line.start, line.start + line.text.length)).toBe(line.text);
+  });
+
   it('returns no lines for blank text', () => {
     expect(layoutText(options({ text: '  \n ' }), mono)).toEqual({ size: 0, letterSpacing: 0, lines: [] });
   });

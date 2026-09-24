@@ -98,7 +98,7 @@ void buildSurface(vec2 p, inout Surface s) {
     vec2 g = grainSpace(p);
     float n = 0.5 + 0.5 * fbm(vec2(g.x / 30.0, g.y / 10.0) + u_damageSeed, 4);
     float nearEdge = 1.0 - smoothstep(0.0, 40.0, inside);
-    float rot = smoothstep(0.78, 0.9, n * (0.7 + 0.35 * u_rot) + nearEdge * 0.4 * u_rot);
+    float rot = smoothstep(0.78, 0.9, n * (0.7 + 0.35 * u_rot) + nearEdge * 0.4 * u_rot) * (1.0 - shielded(p));
     s.albedo = mix(s.albedo, s.albedo * vec3(0.45, 0.37, 0.3), rot);
     s.height -= rot * (0.6 + 0.8 * fbm(p / 1.5 + u_damageSeed, 3));
     s.roughness = mix(s.roughness, 1.0, rot);
@@ -108,7 +108,7 @@ void buildSurface(vec2 p, inout Surface s) {
   // Gouges (chips stretched along the grain).
   Chipping gouges = chipsAt(p);
   if (gouges.depth > 0.0) s.height = min(s.height, face - gouges.depth);
-  s.albedo = mix(s.albedo, min(color * 1.1, vec3(1.0)), 0.7 * gouges.fresh);
+  s.albedo = mix(s.albedo, min(color * 1.1, vec3(1.0)), gouges.fresh);
   s.metal *= 1.0 - gouges.fresh;
   s.alpha *= 1.0 - gouges.missing;
 

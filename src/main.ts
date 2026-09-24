@@ -1,14 +1,16 @@
 import './style.css';
 import * as twgl from 'twgl.js';
 import { download, renderPng } from './export/exportPng';
+import { printImage } from './export/print';
 import { DistanceField } from './render/distanceField';
 import { present } from './render/display';
 import { createContext, Gpu, readGpuInfo, type GpuInfo } from './render/gl';
-import { imageSize, SceneRenderer, TRANSPARENT } from './render/renderer';
+import { imageSize, SceneRenderer, TRANSPARENT, WHITE } from './render/renderer';
 import { buildScene, type Scene } from './scene';
 import { defaultSettings, type Settings } from './settings';
+import { loadSaved, save, settingsFromUrl, urlHashFor } from './share';
 import { FONTS, loadFont, measureFont } from './text/fonts';
-import { renderPanel } from './ui/panel';
+import { renderPanel, type PanelActions } from './ui/panel';
 import { Store } from './ui/store';
 
 const canvas = element<HTMLCanvasElement>('preview');
@@ -21,13 +23,14 @@ const gpuInfoList = element<HTMLDListElement>('gpu-info');
 const MAX_PREVIEW_PIXELS = 4_000_000;
 const PRINT_DPI = 300;
 
-function start(): void {
+async function start(): Promise<void> {
   const gl = createContext(canvas);
   showGpuInfo(readGpuInfo(gl));
   const gpu = new Gpu(gl);
   const distanceField = new DistanceField(gpu);
   const preview = new SceneRenderer(gpu, distanceField);
-  const store = new Store<Settings>(defaultSettings('marble'));
+  const initial = (await settingsFromUrl(window.location.hash)) ?? loadSaved() ?? defaultSettings('marble');
+  const store = new Store<Settings>(initial);
 
   const sceneFor = async (settings: Settings): Promise<Scene> => {
     const font = FONTS[settings.font];
@@ -58,27 +61,66 @@ function start(): void {
     }
   };
 
-  renderPanel(controls, store, {
-    exportPng: async (button) => {
-      const label = button.textContent;
-      button.disabled = true;
-      button.textContent = 'Rendering…';
-      try {
-        const settings = store.get();
-        const blob = await renderPng(gpu, distanceField, await sceneFor(settings), PRINT_DPI);
-        download(blob, `stele-${settings.medium}-${settings.seeds.material}.png`);
-      } catch (error) {
-        console.error(error);
-        showMessage(`Export failed: ${error instanceof Error ? error.message : String(error)}`);
-      } finally {
-        button.disabled = false;
-        button.textContent = label;
-        schedule();
-      }
-    },
-  });
+  // Keep the page's URL pointing at the current handout, and remember it for next time.
+  let saveTimer = 0;
+  const remember = () => {
+    clearTimeout(saveTimer);
+    saveTimer = window.setTimeout(async () => {
+      const settings = store.get();
+      save(settings);
+      history.replaceState(null, '', await urlHashFor(settings));
+    }, 400);
+  };
 
+  /** Runs an action that renders at print size, showing progress on its button. */
+  const busy = async (button: HTMLButtonElement, working: string, action: () => Promise<void>) => {
+    const label = button.textContent;
+    button.disabled = true;
+    button.textContent = working;
+    try {
+      await action();
+    } catch (error) {
+      console.error(error);
+      showMessage(`That didn't work: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      button.disabled = false;
+      button.textContent = label;
+      schedule();
+    }
+  };
+
+  const actions: PanelActions = {
+    exportPng: (button) =>
+      busy(button, 'Rendering…', async () => {
+        const settings = store.get();
+        const background = settings.transparent ? TRANSPARENT : WHITE;
+        const blob = await renderPng(gpu, distanceField, await sceneFor(settings), PRINT_DPI, background);
+        download(blob, `stele-${settings.medium}-${settings.seeds.material}.png`);
+      }),
+    print: (button) =>
+      busy(button, 'Preparing…', async () => {
+        const scene = await sceneFor(store.get());
+        const blob = await renderPng(gpu, distanceField, scene, PRINT_DPI, WHITE);
+        await printImage(blob, scene.width + 2 * scene.margin, scene.height + 2 * scene.margin);
+      }),
+    copyLink: (button) =>
+      busy(button, 'Copying…', async () => {
+        history.replaceState(null, '', await urlHashFor(store.get()));
+        await navigator.clipboard.writeText(window.location.href);
+        button.textContent = 'Link copied';
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+      }),
+  };
+
+  renderPanel(controls, store, actions);
   store.subscribe(schedule);
+  store.subscribe(remember);
+  window.addEventListener('hashchange', async () => {
+    const linked = await settingsFromUrl(window.location.hash);
+    if (!linked) return;
+    store.set(linked);
+    renderPanel(controls, store, actions);
+  });
   new ResizeObserver(schedule).observe(canvas);
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', schedule);
   canvas.addEventListener('webglcontextlost', (event) => {
@@ -137,9 +179,7 @@ function textElement(tag: string, text: string): HTMLElement {
   return node;
 }
 
-try {
-  start();
-} catch (error) {
+start().catch((error: unknown) => {
   console.error(error);
   showMessage(error instanceof Error ? error.message : String(error));
-}
+});

@@ -5,7 +5,7 @@ letter, a papyrus fragment) and outputs a handout image for tabletop games, to s
 directly or to print. The point is
 legibility: damage and fade let a game master control how hard the text is for players to read.
 
-**Current phase:** 3 (handout workflow). Phases 0–2 are done. See [Milestones](#milestones).
+**Current phase:** the backlog. Phases 0–3 are done. See [Milestones](#milestones).
 
 ## The approach
 
@@ -181,14 +181,17 @@ The image is the main output: it can be shared directly (chat, a virtual tableto
 best, or printed. Printing is supported but isn't the priority; prints from a basic black-and-white
 printer came out fine in testing.
 
-- **Page setup:** Letter (default), A4, A5 and index cards, with the object's size in inches or
-  cm and a preview of its placement on the page.
-- **Print:** renders at 300 DPI into a print-only layout sized in real inches, so it prints at
-  true size when printed at 100% scale.
+- **Size:** each medium has a real size in mm, adjustable from 50% to 150% (shown in cm and
+  inches).
+- **Print:** renders at 300 DPI into a print-only layout sized in mm, on a page turned to suit the
+  object, so it prints at true size at 100% scale. The paper size comes from the browser's print
+  dialog; an object too big for the page shrinks to fit.
 - **PNG download:** includes the DPI, with an optional transparent background for virtual
   tabletops like Foundry and Roll20. PDF export comes later.
-- **Calibration page:** a ruler and grey ramp to check sizing, plus a print-friendly brightness
-  option, because dark stone uses a lot of toner.
+- **Share links:** the page's URL always encodes the current handout (compressed settings after
+  `#s=`), and settings are saved in the browser between visits.
+- **Not built:** a calibration page and a print-friendly brightness option. Printing isn't the
+  priority, so these wait until someone needs them.
 
 ## Project layout
 
@@ -202,10 +205,11 @@ docs/PLAN.md                     # this file
 dev/contact-sheet.html           # dev server only: media × fade × damage grids, print-res crops
 src/
   main.ts · style.css            # app entry: wires settings, panel, preview and export
-  settings.ts                    # the Settings model, defaults, switching medium
+  settings.ts · share.ts         # the Settings model and defaults; share links and autosave
+  presets.ts                     # ready-made handouts
   scene.ts                       # settings → everything the renderer needs, in mm
   media/                         # media (sizes, variants, methods, damage mix), shapes, writing methods
-  text/                          # fonts, layout/fit/wrap, the writing hand, rasterizing
+  text/                          # fonts, layout/fit/wrap, the writing hand, markup, Roman forms
   damage/                        # seeded generators (chips, breaks, cracks, holes, burns, tears…) and GPU packing
   render/
     gl.ts · targets.ts           # WebGL2 context, capability checks, programs, render targets
@@ -213,7 +217,7 @@ src/
     renderer.ts · display.ts     # cached surface + lighting passes; drawing to the page
     shaders/                     # all GLSL; .vert/.frag entry points, .glsl libraries
       lib/ surface/ media/ writing/ damage/  # media/stone.glsl and sheet.glsl hold shared behaviour
-  export/                        # PNG with DPI, file download
+  export/                        # PNG with DPI, file download, printing at true size
   ui/                            # store, control builders, the control panel
   dev/contactSheet.ts            # the contact sheet page
   util/rng.ts                    # seeded PRNG
@@ -243,13 +247,15 @@ the sliders go up.
 - writing methods: flat-bottomed cuts, paint- or gold-filled carving, painted, burned, carbon ink
 - shapes, lighting controls and color variants
 
-**Phase 3: Handout workflow.** *(current)*
+**Phase 3: Handout workflow.** *(done; the page-size picker was dropped in favour of the print
+dialog, and the calibration page is deferred)*
 - true-size printing, and PNG with DPI and transparency
 - share links and autosave
 - presets: "Roman epitaph", "Burnt letter", "Papyrus fragment", "Tavern sign"
 - targeted-damage markup
-- Roman helpers and handwriting realism
-- mobile layout, and a clear message on browsers without WebGL2
+- Roman helpers and handwriting realism (pen pressure added)
+- mobile layout (the preview stays pinned at the top), and a clear message on browsers without
+  WebGL2
 
 **Backlog:**
 - media: bronze plaque, clay and wax tablets, leather, chalk on slate

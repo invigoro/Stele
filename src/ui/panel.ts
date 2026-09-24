@@ -2,15 +2,18 @@ import { DAMAGE_TYPES, type DamageId } from '../damage/types';
 import { MEDIA, type MediumDef, type MediumId } from '../media/media';
 import { SHAPES, type ShapeId } from '../media/shapes';
 import { METHODS, type MethodId } from '../media/writing';
+import { applyPreset, PRESETS } from '../presets';
 import { changeMedium, type Seeds, type Settings } from '../settings';
 import { FONTS, type FontId } from '../text/fonts';
 import type { Align } from '../text/layout';
 import { randomSeed } from '../util/rng';
-import { button, section, segmented, select, slider, textArea } from './controls';
+import { button, checkbox, hint, section, segmented, select, slider, textArea } from './controls';
 import type { Store } from './store';
 
 export interface PanelActions {
   exportPng: (button: HTMLButtonElement) => void;
+  print: (button: HTMLButtonElement) => void;
+  copyLink: (button: HTMLButtonElement) => void;
 }
 
 const percent = (value: number) => `${Math.round(value * 100)}%`;
@@ -20,6 +23,15 @@ const DIRECTIONS = ['right', 'lower right', 'below', 'lower left', 'left', 'uppe
 /** "225° · upper left": where a light at this azimuth comes from. */
 function describeAzimuth(azimuth: number): string {
   return `${Math.round(azimuth)}° · ${DIRECTIONS[Math.round(azimuth / 45) % 8]}`;
+}
+
+/** "24 × 16 cm (9.4 × 6.3 in)" for a medium at a scale. */
+function describeSize(medium: MediumDef, scale: number): string {
+  const cm = (mm: number) => (mm / 10).toFixed(mm < 100 ? 1 : 0);
+  const inches = (mm: number) => (mm / 25.4).toFixed(1);
+  const w = medium.width * scale;
+  const h = medium.height * scale;
+  return `${cm(w)} × ${cm(h)} cm (${inches(w)} × ${inches(h)} in)`;
 }
 
 /** Whether the "Damage types" section is open; kept across rebuilds of the panel. */
@@ -39,10 +51,6 @@ export function renderPanel(container: HTMLElement, store: Store<Settings>, acti
     });
   const dice = (title: string, ...keys: (keyof Seeds)[]) =>
     button('🎲', () => reroll(...keys), { title, className: 'icon-button' });
-
-  const exportButton = button('Download PNG · 300 DPI', () => actions.exportPng(exportButton), {
-    className: 'primary',
-  });
 
   const damageTypes = document.createElement('details');
   damageTypes.className = 'subsection';
@@ -66,7 +74,21 @@ export function renderPanel(container: HTMLElement, store: Store<Settings>, acti
     ),
   );
 
+  const presetOptions = [{ value: '', label: 'Choose a preset…' }, ...PRESETS.map((p, i) => ({ value: String(i), label: p.label }))];
   const sections = [
+    section(
+      'Start from',
+      select<string>({
+        label: 'Preset',
+        value: '',
+        options: presetOptions,
+        onChange: (value) => {
+          if (!value) return;
+          store.set(applyPreset(PRESETS[Number(value)], store.get().seeds));
+          rebuild();
+        },
+      }),
+    ),
     section(
       'Object',
       select<MediumId>({
@@ -90,6 +112,15 @@ export function renderPanel(container: HTMLElement, store: Store<Settings>, acti
         options: medium.shapes.map((shape) => ({ value: shape, label: SHAPES[shape].label })),
         onChange: (shape) => change({ shape }),
       }),
+      slider({
+        label: 'Size',
+        value: settings.objectScale,
+        min: 0.5,
+        max: 1.5,
+        step: 0.05,
+        format: (scale) => describeSize(medium, scale),
+        onInput: (objectScale) => change({ objectScale }),
+      }),
     ),
     section(
       'Writing',
@@ -99,6 +130,7 @@ export function renderPanel(container: HTMLElement, store: Store<Settings>, acti
         rows: 6,
         onInput: (text) => change({ text, textEdited: true }),
       }),
+      hint('Wrap words in <code>[[…]]</code> to have them destroyed, or <code>{{…}}</code> to keep damage off them.'),
       select<FontId>({
         label: 'Style',
         value: settings.font,
@@ -129,6 +161,11 @@ export function renderPanel(container: HTMLElement, store: Store<Settings>, acti
           { value: 'right', label: 'Right' },
         ],
         onChange: (align) => change({ align }),
+      }),
+      checkbox({
+        label: 'Roman letter forms (V for U, dots between words)',
+        checked: settings.roman,
+        onChange: (roman) => change({ roman }),
       }),
     ),
     section(
@@ -195,6 +232,21 @@ export function renderPanel(container: HTMLElement, store: Store<Settings>, acti
     );
   }
 
-  sections.push(section('Output', exportButton));
+  const exportButton = button('Download PNG · 300 DPI', () => actions.exportPng(exportButton), { className: 'primary' });
+  const printButton = button('Print at actual size', () => actions.print(printButton), { className: 'secondary' });
+  const linkButton = button('Copy link to this handout', () => actions.copyLink(linkButton), { className: 'secondary' });
+  sections.push(
+    section(
+      'Output',
+      exportButton,
+      checkbox({
+        label: 'Transparent background (for virtual tabletops)',
+        checked: settings.transparent,
+        onChange: (transparent) => change({ transparent }),
+      }),
+      printButton,
+      linkButton,
+    ),
+  );
   container.replaceChildren(...sections);
 }

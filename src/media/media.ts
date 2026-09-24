@@ -1,3 +1,4 @@
+import type { Obliteration } from '../damage/marks';
 import type { DamageMix } from '../damage/types';
 import type { FontId } from '../text/fonts';
 import type { Hand } from '../text/hand';
@@ -62,6 +63,8 @@ export interface MediumDef {
   grain?: number;
   /** What the "Holes" damage type makes on this medium. */
   holes?: 'worm' | 'nail' | 'lacuna';
+  /** How a word marked [[like this]] is destroyed. */
+  obliterate: Obliteration;
 }
 
 const CHISEL: Hand = { perGlyph: true, rotation: 0.5, baseline: 0.012, spacing: 0.012, scale: 0.012, lineSlope: 0.15, dipPen: false };
@@ -99,6 +102,7 @@ export const MEDIA = {
     methods: STONE_METHODS,
     shapes: STONE_SHAPES,
     damage: { chips: 0.8, breaks: 0.6, cracks: 0.4, stains: 0.4, lichen: 0.2 },
+    obliterate: 'chip',
   },
   sandstone: {
     label: 'Sandstone',
@@ -124,6 +128,7 @@ export const MEDIA = {
     methods: ['carved', 'carved-flat', 'filled-red', 'painted-black'],
     shapes: ['stele', 'rectangle', 'fragment', 'tabula'],
     damage: { chips: 0.6, breaks: 0.7, cracks: 0.3, pitting: 0.7, flaking: 0.5, lichen: 0.4 },
+    obliterate: 'chip',
   },
   granite: {
     label: 'Granite',
@@ -142,13 +147,14 @@ export const MEDIA = {
     hand: CHISEL,
     light: { ...RAKING, specular: 0.4, shininess: 60 },
     variants: {
-      grey: { label: 'Grey', palette: [[0.62, 0.62, 0.62], [0.75, 0.74, 0.72], [0.88, 0.88, 0.87], [0.12, 0.12, 0.13]] },
+      grey: { label: 'Grey', palette: [[0.62, 0.62, 0.62], [0.75, 0.74, 0.72], [0.88, 0.88, 0.87], [0.2, 0.2, 0.21]] },
       pink: { label: 'Pink', palette: [[0.66, 0.56, 0.54], [0.8, 0.55, 0.5], [0.9, 0.86, 0.84], [0.15, 0.13, 0.13]] },
       black: { label: 'Black', palette: [[0.09, 0.09, 0.1], [0.14, 0.14, 0.15], [0.22, 0.22, 0.23], [0.05, 0.05, 0.05]] },
     },
     methods: ['carved', 'carved-flat', 'gilt', 'filled-black'],
     shapes: ['rectangle', 'stele', 'fragment'],
     damage: { chips: 0.5, breaks: 0.5, cracks: 0.4, lichen: 0.4, stains: 0.3 },
+    obliterate: 'chip',
   },
   slate: {
     label: 'Slate',
@@ -174,6 +180,7 @@ export const MEDIA = {
     methods: ['carved', 'carved-flat', 'gilt', 'painted-white'],
     shapes: ['stele', 'rectangle', 'fragment'],
     damage: { chips: 0.4, breaks: 0.5, cracks: 0.5, flaking: 0.7, lichen: 0.4 },
+    obliterate: 'chip',
   },
   wood: {
     label: 'Wood',
@@ -200,6 +207,7 @@ export const MEDIA = {
     methods: ['gilt', 'carved', 'carved-flat', 'filled-black', 'painted-white', 'painted-black', 'painted-red', 'burned'],
     shapes: ['rectangle', 'fragment'],
     damage: { splits: 0.7, gouges: 0.5, rot: 0.4, holes: 0.5, burns: 0.3 },
+    obliterate: 'gouge',
     grain: 0,
     holes: 'worm',
   },
@@ -230,6 +238,7 @@ export const MEDIA = {
     methods: ['iron-gall', 'carbon-ink', 'red-ink'],
     shapes: ['sheet', 'torn'],
     damage: { water: 0.7, tears: 0.4, burns: 0.3, folds: 0.6, smudges: 0.35, foxing: 0.5 },
+    obliterate: 'blot',
   },
   parchment: {
     label: 'Parchment',
@@ -256,6 +265,7 @@ export const MEDIA = {
     methods: ['iron-gall', 'carbon-ink', 'red-ink'],
     shapes: ['sheet', 'torn'],
     damage: { water: 0.5, tears: 0.3, burns: 0.3, folds: 0.4, holes: 0.3, foxing: 0.4 },
+    obliterate: 'blot',
     holes: 'worm',
   },
   papyrus: {
@@ -283,6 +293,7 @@ export const MEDIA = {
     methods: ['carbon-ink', 'red-ink'],
     shapes: ['torn', 'sheet'],
     damage: { holes: 0.7, fraying: 0.7, tears: 0.5, darkening: 0.5, water: 0.2 },
+    obliterate: 'hole',
     grain: 0,
     holes: 'lacuna',
   },

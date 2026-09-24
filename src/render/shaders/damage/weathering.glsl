@@ -34,10 +34,14 @@ Growth lichenAt(vec2 p) {
 // Soot and runoff: dark streaks where rain ran down from the top, and sooty patches.
 float sootAt(vec2 p) {
   if (u_soot <= 0.0) return 0.0;
-  float fromTop = 1.0 - smoothstep(0.0, 0.8 * u_sizeMm.y, p.y);
-  float streaks = smoothstep(0.35, 0.85, 0.5 + 0.5 * fbm(vec2(p.x / 6.0, p.y / 90.0) + u_damageSeed, 4));
+  // Each streak runs its own distance down from the top, and only some columns have one.
+  float column = 0.5 + 0.5 * fbm(vec2(p.x / 9.0, 0.0) + u_damageSeed, 3);
+  float reach = u_sizeMm.y * (0.15 + 0.7 * column);
+  float fromTop = 1.0 - smoothstep(0.3 * reach, reach, p.y);
+  float streaks = smoothstep(0.5, 0.9, 0.5 + 0.5 * fbm(vec2(p.x / 5.0, p.y / 110.0) + u_damageSeed, 4));
+  streaks *= smoothstep(0.35, 0.7, column);
   float patches = smoothstep(0.4, 0.9, 0.5 + 0.5 * fbm(p / 45.0 + u_damageSeed * 1.7, 3));
-  return clamp(u_soot * (0.7 * streaks * fromTop + 0.45 * patches), 0.0, 0.8);
+  return clamp(u_soot * (0.55 * streaks * fromTop + 0.45 * patches), 0.0, 0.8);
 }
 
 // Honeycomb weathering: a few clusters of rounded pits that merge into a honeycomb,

@@ -4,9 +4,24 @@ Stele turns text into a weathered inscription or an aged document: carved marble
 sandstone, burnt letters, water-stained papyrus. The result is a handout image for tabletop games,
 to share with players or print, where damage and fading make it harder for players to read.
 
-**Live site:** https://stele.invigoro.me/ (work in progress). Eight media so far: marble, sandstone,
-granite, slate, wood, paper, parchment and papyrus, each with its own damage types, plus fade, colour
-variants, shapes, several writing methods and a 300 DPI PNG download.
+**Live site:** https://stele.invigoro.me/
+
+## Using it
+
+- **Pick a medium:** marble, sandstone, granite, slate, wood, paper, parchment or papyrus. Each has
+  colour variants, shapes (a Roman tabula ansata, a round-topped stele, a broken fragment, a torn
+  sheet…) and writing methods (carved, gilded, painted, burned, inked).
+- **Type the text,** choose a style (Roman capitals, blackletter, copperplate, handwriting,
+  typewriter, runes…), and add wear:
+  - **Damage** scales everything the medium can suffer; "Damage types" adjusts each one (chips,
+    cracks, lichen, burns, water, tears, folds…).
+  - **Fade** wears the writing itself away: carving grows shallow, ink thins and browns.
+  - 🎲 rerolls where the damage or fading falls.
+- **Decide what players can read:** wrap words in `[[double brackets]]` to guarantee they're
+  destroyed, or in `{{double braces}}` to keep damage off them.
+- **Start from a preset** such as "Roman epitaph", "Burnt letter" or "Dwarven waystone".
+- **Take it to the table:** download a 300 DPI PNG (optionally transparent, for virtual tabletops),
+  print it at true size, or copy a link. The page's URL always describes the current handout.
 
 ## Development
 
