@@ -17,23 +17,15 @@
           <h1>Stele</h1>
           <p>Inscriptions and documents for tabletop handouts</p>
         </header>
-
-        <section class="panel-section" aria-labelledby="check-heading">
-          <h2 id="check-heading">Renderer check</h2>
-          <p class="note">
-            Work in progress. For now this page draws a procedural test pattern to check that
-            WebGL2 rendering works on your device.
-          </p>
-          <div class="seed-row">
-            <span>Seed <output id="seed" class="mono"></output></span>
-            <button id="reroll" type="button">Reroll</button>
-          </div>
+        <div id="controls"></div>
+        <details class="diagnostics">
+          <summary>Diagnostics</summary>
           <dl id="gpu-info" class="caps"></dl>
-        </section>
+        </details>
       </aside>
 
-      <main class="stage">
-        <canvas id="preview" role="img" aria-label="Procedural test pattern"></canvas>
+      <main id="stage" class="stage">
+        <canvas id="preview" role="img" aria-label="Preview of the handout"></canvas>
         <p id="stage-message" class="stage-message" role="alert" hidden></p>
       </main>
     </div>

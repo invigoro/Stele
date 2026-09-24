@@ -4,7 +4,7 @@ Stele turns text into a realistic physical object with writing on it (a marble i
 letter, a papyrus fragment) and outputs a printable handout for tabletop games. The point is
 legibility: damage and fade let a game master control how hard the text is for players to read.
 
-**Current phase:** 0 (setup and deploy). See [Milestones](#milestones).
+**Current phase:** 2 (the full starting set). Phases 0 and 1 are done. See [Milestones](#milestones).
 
 ## The approach
 
@@ -194,32 +194,33 @@ Items marked *(planned)* don't exist yet.
 index.html · vite.config.ts · package.json · .nvmrc
 public/                          # copied as-is (favicon)
 docs/PLAN.md                     # this file
+dev/contact-sheet.html           # dev server only: media × fade × damage grids, print-res crops
 src/
-  main.ts · style.css            # app entry
+  main.ts · style.css            # app entry: wires settings, panel, preview and export
+  settings.ts                    # the Settings model, defaults, switching medium
+  scene.ts                       # settings → everything the renderer needs, in mm
+  media/media.ts                 # one definition per medium: size, font, hand, light, damage
+  text/                          # fonts, layout/fit/wrap, the writing hand, rasterizing
+  damage/                        # seeded generators (chips, stains) and GPU packing
   render/
-    gl.ts                        # WebGL2 context, GPU capability checks, program building
-    testPattern.ts               # Phase 0 renderer check (replaced in Phase 1)
-    shaders/                     # all GLSL
-      include.ts · index.ts      # #include expansion and the shader registry
-      lib/                       # noise2d, fbm; later worley, shapes, color
-      media/                     # (planned) one material function per medium
+    gl.ts · targets.ts           # WebGL2 context, capability checks, programs, render targets
+    distanceField.ts             # jump-flood signed distance to the letters
+    renderer.ts · display.ts     # cached surface + lighting passes; drawing to the page
+    shaders/                     # all GLSL; .vert/.frag entry points, .glsl libraries
+      lib/ surface/ media/ writing/ damage/
+  export/                        # PNG with DPI, file download
+  ui/                            # store, control builders, the control panel
+  dev/contactSheet.ts            # the contact sheet page
   util/rng.ts                    # seeded PRNG
-  settings.ts                    # (planned) state, defaults, saving and share links
-  ui/                            # (planned) generated controls, preview, export dialog
-  text/                          # (planned) fonts, layout/fit/wrap, irregularity, markup, Roman helpers
-  media/<id>.ts                  # (planned) one definition per medium
-  damage/                        # (planned) seeded generators: cracks, tears, chips, folds, burns
-  shapes/ · export/              # (planned) outlines; PNG and print output
-dev/contact-sheet.html           # (planned) every medium × fade × damage in one grid, for tuning
 ```
 
 ## Milestones
 
-**Phase 0: Setup and deploy.** *(current)*
+**Phase 0: Setup and deploy.** *(done)*
 - Vite/TS project, the deploy workflow, and a WebGL2 test canvas live on Pages.
 - *Done when* a push to `main` updates the site.
 
-**Phase 1: Get Marble and Paper looking real.**
+**Phase 1: Get Marble and Paper looking real.** *(done; awaiting a real print test)*
 This is make-or-break. The whole product depends on looking real, so prove it on two very
 different media before building everything else.
 - text layout, a few fonts, the distance field, the noise library, and the combine and lighting
@@ -231,7 +232,7 @@ different media before building everything else.
 *Done when* a printed page is convincing at arm's length and readability drops off smoothly as
 the sliders go up.
 
-**Phase 2: The full starting set.**
+**Phase 2: The full starting set.** *(current)*
 - Sandstone, Wood and Papyrus, plus Parchment, Granite and Slate
 - the remaining damage types
 - writing methods: flat-bottomed cuts, paint- or gold-filled carving, painted, burned, carbon ink

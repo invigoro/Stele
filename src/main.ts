@@ -1,45 +1,111 @@
 import './style.css';
 import * as twgl from 'twgl.js';
-import { createContext, readGpuInfo, type GpuInfo } from './render/gl';
-import { TestPattern } from './render/testPattern';
-import { mulberry32, randomSeed } from './util/rng';
+import { download, renderPng } from './export/exportPng';
+import { DistanceField } from './render/distanceField';
+import { present } from './render/display';
+import { createContext, Gpu, readGpuInfo, type GpuInfo } from './render/gl';
+import { imageSize, SceneRenderer, TRANSPARENT } from './render/renderer';
+import { buildScene, type Scene } from './scene';
+import { defaultSettings, type Settings } from './settings';
+import { FONTS, loadFont, measureFont } from './text/fonts';
+import { renderPanel } from './ui/panel';
+import { Store } from './ui/store';
 
 const canvas = element<HTMLCanvasElement>('preview');
+const stage = element<HTMLElement>('stage');
 const stageMessage = element<HTMLParagraphElement>('stage-message');
-const seedOutput = element<HTMLOutputElement>('seed');
-const rerollButton = element<HTMLButtonElement>('reroll');
+const controls = element<HTMLElement>('controls');
 const gpuInfoList = element<HTMLDListElement>('gpu-info');
+
+/** Preview renders stay under this many pixels so dragging sliders stays smooth. */
+const MAX_PREVIEW_PIXELS = 4_000_000;
+const PRINT_DPI = 300;
 
 function start(): void {
   const gl = createContext(canvas);
   showGpuInfo(readGpuInfo(gl));
+  const gpu = new Gpu(gl);
+  const distanceField = new DistanceField(gpu);
+  const preview = new SceneRenderer(gpu, distanceField);
+  const store = new Store<Settings>(defaultSettings('marble'));
 
-  let pattern = new TestPattern(gl);
-  let seed = seedFromUrl() ?? randomSeed();
-
-  const render = () => {
-    if (gl.isContextLost()) return;
-    twgl.resizeCanvasToDisplaySize(canvas, Math.min(window.devicePixelRatio, 2));
-    const random = mulberry32(seed);
-    pattern.draw([random() * 1000, random() * 1000]);
-    seedOutput.value = String(seed);
+  const sceneFor = async (settings: Settings): Promise<Scene> => {
+    const font = FONTS[settings.font];
+    await loadFont(font);
+    return buildScene(settings, measureFont(font));
   };
 
-  new ResizeObserver(render).observe(canvas);
-  rerollButton.addEventListener('click', () => {
-    seed = randomSeed();
-    render();
+  let frame = 0;
+  const schedule = () => {
+    frame ||= requestAnimationFrame(() => {
+      frame = 0;
+      void draw();
+    });
+  };
+  const draw = async () => {
+    const settings = store.get();
+    try {
+      const scene = await sceneFor(settings);
+      if (store.get() !== settings) return schedule(); // changed while the font loaded
+      if (gl.isContextLost()) return;
+      twgl.resizeCanvasToDisplaySize(canvas, window.devicePixelRatio);
+      const image = preview.render(scene, previewScale(scene), TRANSPARENT);
+      present(gpu, image, canvas, backdropColor());
+      showMessage(null);
+    } catch (error) {
+      console.error(error);
+      showMessage(error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  renderPanel(controls, store, {
+    exportPng: async (button) => {
+      const label = button.textContent;
+      button.disabled = true;
+      button.textContent = 'Rendering…';
+      try {
+        const settings = store.get();
+        const blob = await renderPng(gpu, distanceField, await sceneFor(settings), PRINT_DPI);
+        download(blob, `stele-${settings.medium}-${settings.seeds.material}.png`);
+      } catch (error) {
+        console.error(error);
+        showMessage(`Export failed: ${error instanceof Error ? error.message : String(error)}`);
+      } finally {
+        button.disabled = false;
+        button.textContent = label;
+        schedule();
+      }
+    },
   });
 
+  store.subscribe(schedule);
+  new ResizeObserver(schedule).observe(canvas);
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', schedule);
   canvas.addEventListener('webglcontextlost', (event) => {
     event.preventDefault(); // lets the browser restore the context later
-    showMessage('Lost the GPU context. Waiting for the browser to restore it…');
+    showMessage('Lost the GPU context. Reload the page if it doesn’t come back.');
   });
-  canvas.addEventListener('webglcontextrestored', () => {
-    pattern = new TestPattern(gl);
-    showMessage(null);
-    render();
-  });
+  schedule();
+}
+
+/** Pixels per mm that fit the whole image in the stage, within the pixel budget. */
+function previewScale(scene: Scene): number {
+  const padding = 24 * window.devicePixelRatio;
+  const total = imageSize(scene, 1);
+  let scale = Math.min(
+    (canvas.width - 2 * padding) / total.width,
+    (canvas.height - 2 * padding) / total.height,
+    PRINT_DPI / 25.4,
+  );
+  const pixels = total.width * total.height * scale * scale;
+  if (pixels > MAX_PREVIEW_PIXELS) scale *= Math.sqrt(MAX_PREVIEW_PIXELS / pixels);
+  return Math.max(scale, 0.5);
+}
+
+/** The stage's CSS background as sRGB 0–1, so the canvas matches it in either theme. */
+function backdropColor(): [number, number, number] {
+  const [r, g, b] = (getComputedStyle(stage).backgroundColor.match(/[\d.]+/g) ?? ['0', '0', '0']).map(Number);
+  return [r / 255, g / 255, b / 255];
 }
 
 function showGpuInfo(info: GpuInfo): void {
@@ -52,12 +118,6 @@ function showGpuInfo(info: GpuInfo): void {
   gpuInfoList.replaceChildren(
     ...rows.flatMap(([term, value]) => [textElement('dt', term), textElement('dd', value)]),
   );
-}
-
-/** `?seed=123` pins the seed, for reproducible screenshots and bug reports. */
-function seedFromUrl(): number | null {
-  const value = new URLSearchParams(window.location.search).get('seed');
-  return value !== null && /^\d+$/.test(value) ? Number(value) >>> 0 : null;
 }
 
 function showMessage(text: string | null): void {

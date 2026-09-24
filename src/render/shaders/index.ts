@@ -21,3 +21,21 @@ export const shaderFiles: readonly string[] = Object.keys(files);
 export function shaderSource(name: string): string {
   return expandIncludes(name, files);
 }
+
+/** Expands the #includes of a shader assembled at runtime; paths resolve from this folder. */
+export function composeShader(source: string): string {
+  return expandIncludes('(composed)', { ...files, '(composed)': source });
+}
+
+/** The surface-pass fragment shader for a medium (see media/<medium>.glsl). */
+export function surfaceShader(medium: string): string {
+  return composeShader(
+    [
+      '#version 300 es',
+      'precision highp float;',
+      '#include "surface/common.glsl"',
+      `#include "media/${medium}.glsl"`,
+      '#include "surface/main.glsl"',
+    ].join('\n'),
+  );
+}

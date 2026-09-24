@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Stele contact sheet</title>
+    <style>
+      body {
+        margin: 16px;
+        font: 13px system-ui, sans-serif;
+        color: #2b2722;
+        background: #cfc9bd;
+      }
+      h1 {
+        margin: 0 0 4px;
+        font-size: 18px;
+      }
+      h2 {
+        margin: 20px 0 8px;
+        font-size: 15px;
+      }
+      .grid {
+        display: grid;
+        gap: 10px;
+        justify-content: start;
+      }
+      figure {
+        margin: 0;
+      }
+      figcaption {
+        margin-top: 2px;
+        color: #4a443c;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Stele contact sheet</h1>
+    <p id="status">Rendering…</p>
+    <div id="sheet"></div>
+    <script type="module" src="/src/dev/contactSheet.ts"></script>
+  </body>
+</html>
