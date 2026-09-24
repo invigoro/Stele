@@ -1,3 +1,4 @@
+import type { Stroke } from './damage/paint';
 import type { DamageMix } from './damage/types';
 import { MEDIA, type MediumDef, type MediumId } from './media/media';
 import type { ShapeId } from './media/shapes';
@@ -40,6 +41,8 @@ export interface Settings {
   damageMix: DamageMix;
   /** 0–1. */
   fade: number;
+  /** Damage painted by hand. */
+  strokes: Stroke[];
   /** Replaces the medium's light direction; null uses the medium's own. */
   light: { azimuth: number; elevation: number } | null;
   seeds: Seeds;
@@ -67,6 +70,7 @@ export function defaultSettings(medium: MediumId, seeds: Seeds = randomSeeds()):
     damage: 0.3,
     damageMix: { ...def.damage },
     fade: 0.2,
+    strokes: [],
     light: null,
     seeds,
   };
@@ -87,5 +91,6 @@ export function changeMedium(settings: Settings, medium: MediumId): Settings {
     transparent: settings.transparent,
     damage: settings.damage,
     fade: settings.fade,
+    strokes: settings.strokes,
   };
 }

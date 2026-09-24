@@ -14,6 +14,7 @@
 #include "../damage/cuts.glsl"
 #include "../damage/cracks.glsl"
 #include "../damage/weathering.glsl"
+#include "../damage/painted.glsl"
 
 const float ARRIS = 2.0; // mm, width of the rounded front edge
 
@@ -33,6 +34,8 @@ void buildSurface(vec2 p, inout Surface s) {
   s.albedo = mix(s.albedo, freshStone(s.albedo), 0.8 * breakFace);
   // The face before any lettering: where damage takes the surface away, the letters' colour goes with it.
   vec3 faceColor = s.albedo;
+  vec4 painted = paintAt(p);
+  float worn = softEdge(painted.g); // painted "wear away"
 
   // Weathering: the face wears down unevenly and roughens.
   float patchy = 0.5 + 0.5 * fbm(p / 45.0 + u_fadeSeed, 3);
@@ -40,22 +43,24 @@ void buildSurface(vec2 p, inout Surface s) {
   s.height += u_fade * 0.06 * GRAIN_SIZE * fbm(p / GRAIN_SIZE + u_fadeSeed * 3.0, 3) * detail(GRAIN_SIZE);
   s.roughness = mix(s.roughness, 0.85, u_fade);
   s.albedo *= 1.0 - 0.06 * u_fade * patchy;
+  s.height += worn * 0.06 * fbm(p / 1.2 + u_damageSeed, 3);
+  s.roughness = mix(s.roughness, 0.9, worn);
 
   if (u_textSize > 0.0) {
     if (u_writing == WRITING_PAINT) {
-      float paint = paintCoverage(p, wear);
+      float paint = paintCoverage(p, wear + 1.5 * worn);
       s.albedo = mix(s.albedo, paintColor(wear), paint);
       s.height += 0.02 * paint;
       s.roughness = mix(s.roughness, 0.55, paint);
     } else {
-      float erosion = pow(wear, 1.3) * 0.09 * u_textSize;
+      float erosion = pow(wear, 1.3) * 0.09 * u_textSize + worn * 0.12 * u_textSize;
       float rounding = 0.04 * u_textSize * (0.3 + u_fade);
       float cut = carveDepth(textDistance(p), CHISEL_SLOPE, erosion, rounding, 0.07 * u_textSize);
       s.height -= cut;
       float inCut = smoothstep(0.0, 0.3, cut);
-      s.albedo = mix(s.albedo, freshStone(s.albedo), inCut * (1.0 - 0.8 * u_fade));
+      s.albedo = mix(s.albedo, freshStone(s.albedo), inCut * (1.0 - 0.8 * u_fade) * (1.0 - worn));
       if (u_fill > 0.5) {
-        float fill = inCut * fillKept(p, cut, wear);
+        float fill = inCut * fillKept(p, cut, wear + worn);
         s.albedo = mix(s.albedo, u_writingColor, fill);
         s.metal = max(s.metal, u_gilt * fill);
         s.roughness = mix(s.roughness, mix(0.6, 0.25, u_gilt), fill);
@@ -83,11 +88,31 @@ void buildSurface(vec2 p, inout Surface s) {
   s.metal *= 1.0 - chips.fresh;
   s.alpha *= 1.0 - chips.missing;
 
+  // Painted chips: a scar with a steep, ragged wall and a rough floor.
+  float chipped = raggedEdge(painted.r, p, 4.0);
+  if (chipped > 0.0) {
+    float floorDepth = 2.2 + 0.8 * fbm(p / 2.5 + u_damageSeed * 1.9, 3);
+    s.height = mix(s.height, min(s.height, face - floorDepth), chipped);
+    s.albedo = mix(s.albedo, freshStone(faceColor), chipped);
+    s.roughness = mix(s.roughness, 0.9, chipped);
+    s.metal *= 1.0 - chipped;
+  }
+
   float grime;
   s.height -= crackDepth(p, grime);
   s.albedo *= 1.0 - 0.55 * grime;
 
   s.albedo *= mix(vec3(1.0), vec3(0.42, 0.4, 0.37), sootAt(p) * open);
+
+  // Painted stains soak in unevenly, and scorching leaves blotchy soot that thins out
+  // toward its edges, over a faint warm discolouring.
+  float stained = softEdge(painted.b) * (0.5 + 0.5 * fbm(p / 5.0 + u_damageSeed * 2.3, 4));
+  s.albedo *= mix(vec3(1.0), vec3(0.47, 0.42, 0.35), 0.8 * stained);
+  float soot = softEdge(painted.a) * (0.55 + 0.45 * fbm(p / 4.0 + u_damageSeed * 3.1, 4));
+  s.albedo = mix(s.albedo, s.albedo * vec3(0.82, 0.74, 0.66), 0.5 * smoothstep(0.0, 0.3, painted.a) * (1.0 - soot));
+  s.albedo = mix(s.albedo, s.albedo * 0.16 + vec3(0.02), 0.9 * soot);
+  s.roughness = mix(s.roughness, 0.95, soot);
+  s.metal *= 1.0 - soot;
 
   // Lichen grows over everything, partly filling the grooves.
   Growth lichen = lichenAt(p);

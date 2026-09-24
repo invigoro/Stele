@@ -3,6 +3,7 @@ import { generateBreaks, generateChips, type Chip } from './damage/chips';
 import { generateCracks, type Crack } from './damage/cracks';
 import { generateHoles, type Hole } from './damage/holes';
 import { markedAreas, obliterate, protectAreas, type Blot } from './damage/marks';
+import type { Stroke } from './damage/paint';
 import {
   generateFolds,
   generateFragmentCuts,
@@ -72,6 +73,8 @@ export interface Scene {
   fields: FieldDamage;
   /** Areas kept clear of spread-out damage: words marked {{like this}}. */
   protect: Box[];
+  /** Damage painted by hand on this page. */
+  strokes: Stroke[];
   fade: number;
   damage: number;
   light: Light;
@@ -183,6 +186,7 @@ export function buildScene(settings: Settings, measure: Measure): Scene {
       darkening: amount('darkening'),
     },
     protect: marks.protect,
+    strokes: settings.strokes.filter((stroke) => stroke.page === 0),
     fade: settings.fade,
     damage: settings.damage,
     light: { ...medium.light, ...(settings.light ?? {}) },

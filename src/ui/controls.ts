@@ -83,14 +83,15 @@ export function select<T extends string>(options: {
   return field(options.label, id, element);
 }
 
-/** A row of mutually exclusive buttons. */
+/** A row of mutually exclusive buttons; `wrap` lets many of them flow onto more rows. */
 export function segmented<T extends string>(options: {
   label: string;
   value: T;
   options: Option<T>[];
   onChange: (value: T) => void;
+  wrap?: boolean;
 }): HTMLElement {
-  const group = create('div', 'segmented');
+  const group = create('div', options.wrap ? 'segmented wrap' : 'segmented');
   group.setAttribute('role', 'group');
   group.setAttribute('aria-label', options.label);
   const buttons = options.options.map((option) => {
@@ -138,6 +139,13 @@ export function hint(html: string): HTMLElement {
   const element = create('p', 'hint');
   element.innerHTML = html;
   return element;
+}
+
+/** Buttons side by side. */
+export function buttonRow(...buttons: HTMLElement[]): HTMLElement {
+  const row = create('div', 'button-row');
+  row.append(...buttons);
+  return row;
 }
 
 export function button(label: string, onClick: () => void, options: { title?: string; className?: string } = {}) {

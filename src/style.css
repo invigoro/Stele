@@ -314,6 +314,46 @@ button.primary + .checkbox + button.secondary {
   display: none;
 }
 
+.stage canvas.painting {
+  cursor: none;
+  touch-action: none;
+}
+
+.brush-cursor {
+  position: absolute;
+  z-index: 1;
+  border: 1.5px solid rgb(255 255 255 / 0.9);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.55);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.brush-cursor[hidden] {
+  display: none;
+}
+
+.segmented.wrap {
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.segmented.wrap button {
+  flex: 1 1 auto;
+  margin-left: 0;
+  border-radius: 6px;
+}
+
+.button-row {
+  display: flex;
+  gap: 8px;
+}
+
+.button-row button {
+  flex: 1;
+  width: auto;
+}
+
 .stage-status {
   position: absolute;
   top: 12px;

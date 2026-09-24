@@ -12,6 +12,7 @@
 #include "../damage/cracks.glsl"
 #include "../damage/holes.glsl"
 #include "../damage/burns.glsl"
+#include "../damage/painted.glsl"
 
 const float CORNER_RADIUS = 3.0;
 const float CHISEL_SLOPE = 1.4;
@@ -64,28 +65,32 @@ void buildSurface(vec2 p, inout Surface s) {
   s.height += 0.03 * late + 0.25 * wear * late;
   s.roughness = 0.75;
 
+  vec4 painted = paintAt(p);
+  float worn = softEdge(painted.g); // painted "wear away"
+  s.height += worn * 0.2 * late;
+
   if (u_textSize > 0.0) {
     if (u_writing == WRITING_PAINT) {
-      float paint = paintCoverage(p, wear) * (1.0 - 0.3 * late * wear);
+      float paint = paintCoverage(p, wear + 1.5 * worn) * (1.0 - 0.3 * late * wear);
       s.albedo = mix(s.albedo, paintColor(wear), paint);
       s.height += 0.03 * paint;
       s.roughness = mix(s.roughness, 0.5, paint);
     } else if (u_writing == WRITING_BURN) {
-      BurnedLetters burned = burnedLetters(p, wear);
+      BurnedLetters burned = burnedLetters(p, wear + 1.5 * worn);
       s.albedo = mix(s.albedo, s.albedo * vec3(0.55, 0.4, 0.3), burned.scorch);
       s.albedo = mix(s.albedo, u_writingColor, burned.charred);
       s.height -= burned.depth;
       s.roughness = mix(s.roughness, 0.6, burned.charred);
     } else {
-      float erosion = pow(wear, 1.3) * 0.08 * u_textSize;
+      float erosion = pow(wear, 1.3) * 0.08 * u_textSize + worn * 0.12 * u_textSize;
       float rounding = 0.05 * u_textSize * (0.3 + u_fade);
       float cut = carveDepth(textDistance(p), CHISEL_SLOPE, erosion, rounding, 0.06 * u_textSize);
       s.height -= cut;
       float inCut = smoothstep(0.0, 0.3, cut);
       // Freshly cut wood is much paler than the surface around it.
-      s.albedo = mix(s.albedo, mix(min(color * 1.3 + 0.04, vec3(1.0)), s.albedo, 0.6 * u_fade), inCut);
+      s.albedo = mix(s.albedo, mix(min(color * 1.3 + 0.04, vec3(1.0)), s.albedo, 0.6 * u_fade), inCut * (1.0 - worn));
       if (u_fill > 0.5) {
-        float fill = inCut * fillKept(p, cut, wear);
+        float fill = inCut * fillKept(p, cut, wear + worn);
         s.albedo = mix(s.albedo, u_writingColor, fill);
         s.metal = max(s.metal, u_gilt * fill);
         s.roughness = mix(s.roughness, mix(0.55, 0.25, u_gilt), fill);
@@ -93,12 +98,15 @@ void buildSurface(vec2 p, inout Surface s) {
     }
   }
 
-  // Rot: soft, dark, crumbling patches, worst toward the edges.
+  // Rot: soft, dark, crumbling patches, worst toward the edges, plus any painted on.
+  float rot = raggedEdge(painted.b, p, 6.0);
   if (u_rot > 0.0) {
     vec2 g = grainSpace(p);
     float n = 0.5 + 0.5 * fbm(vec2(g.x / 30.0, g.y / 10.0) + u_damageSeed, 4);
     float nearEdge = 1.0 - smoothstep(0.0, 40.0, inside);
-    float rot = smoothstep(0.78, 0.9, n * (0.7 + 0.35 * u_rot) + nearEdge * 0.4 * u_rot) * (1.0 - shielded(p));
+    rot = max(rot, smoothstep(0.78, 0.9, n * (0.7 + 0.35 * u_rot) + nearEdge * 0.4 * u_rot) * (1.0 - shielded(p)));
+  }
+  if (rot > 0.0) {
     s.albedo = mix(s.albedo, s.albedo * vec3(0.45, 0.37, 0.3), rot);
     s.height -= rot * (0.6 + 0.8 * fbm(p / 1.5 + u_damageSeed, 3));
     s.roughness = mix(s.roughness, 1.0, rot);
@@ -111,6 +119,16 @@ void buildSurface(vec2 p, inout Surface s) {
   s.albedo = mix(s.albedo, min(color * 1.1, vec3(1.0)), gouges.fresh);
   s.metal *= 1.0 - gouges.fresh;
   s.alpha *= 1.0 - gouges.missing;
+
+  // Painted gouges: a splintery floor that follows the grain.
+  float gouged = raggedEdge(painted.r, p, 4.0);
+  if (gouged > 0.0) {
+    float floorDepth = 2.0 + 0.7 * fbm(grainSpace(p) / vec2(8.0, 1.5) + u_damageSeed, 3);
+    s.height = mix(s.height, min(s.height, face - floorDepth), gouged);
+    s.albedo = mix(s.albedo, min(color * 1.1, vec3(1.0)), gouged);
+    s.roughness = mix(s.roughness, 0.85, gouged);
+    s.metal *= 1.0 - gouged;
+  }
 
   // Splits along the grain.
   float grime;
@@ -126,8 +144,9 @@ void buildSurface(vec2 p, inout Surface s) {
 
   // Burns: charred black and cracked in the middle, scorched brown around it.
   Burning burn = burnsAt(p);
+  burn.scorch = max(burn.scorch, smoothstep(0.0, 0.5, painted.a));
   s.albedo = mix(s.albedo, s.albedo * vec3(0.5, 0.36, 0.24), burn.scorch);
-  float charred = max(burn.charred, burn.missing);
+  float charred = max(max(burn.charred, burn.missing), smoothstep(0.35, 0.75, painted.a + 0.2 * fbm(p / 5.0 + u_damageSeed * 3.1, 3)));
   // Char breaks into blocks; points far from any cell centre lie along the cracks.
   float crackle = smoothstep(0.42, 0.55, worley(p / 2.0 + u_damageSeed).x) * detail(0.4);
   s.albedo = mix(s.albedo, vec3(0.07, 0.05, 0.04) * (1.0 + 0.6 * crackle), charred);

@@ -1,3 +1,4 @@
+import { PAINT_KINDS, PAINT_LABELS, type PaintKind } from '../damage/paint';
 import { DAMAGE_TYPES, type DamageId } from '../damage/types';
 import { MEDIA, type MediumDef, type MediumId } from '../media/media';
 import { SHAPES, type ShapeId } from '../media/shapes';
@@ -7,10 +8,14 @@ import { changeMedium, type Seeds, type Settings } from '../settings';
 import { FONTS, type FontId } from '../text/fonts';
 import type { Align } from '../text/layout';
 import { randomSeed } from '../util/rng';
-import { button, checkbox, hint, section, segmented, select, slider, textArea } from './controls';
+import { clearStrokes, undoStroke, type BrushState } from './brush';
+import { button, buttonRow, checkbox, hint, section, segmented, select, slider, textArea } from './controls';
 import type { Store } from './store';
 
 export interface PanelActions {
+  brush: Store<BrushState>;
+  /** The page being shown, for painting and undo. */
+  page: () => number;
   exportPng: (button: HTMLButtonElement) => void;
   print: (button: HTMLButtonElement) => void;
   copyLink: (button: HTMLButtonElement) => void;
@@ -196,6 +201,43 @@ export function renderPanel(container: HTMLElement, store: Store<Settings>, acti
       }),
     ),
   ];
+
+  const { brush } = actions;
+  const labels = PAINT_LABELS[medium.family];
+  sections.push(
+    section(
+      'Paint damage',
+      segmented<PaintKind | 'off'>({
+        label: 'Brush',
+        value: brush.get().tool ?? 'off',
+        options: [{ value: 'off', label: 'Off' }, ...PAINT_KINDS.map((kind) => ({ value: kind, label: labels[kind] }))],
+        onChange: (value) => brush.update((b) => ({ ...b, tool: value === 'off' ? null : value })),
+        wrap: true,
+      }),
+      slider({
+        label: 'Brush size',
+        value: brush.get().size,
+        min: 2,
+        max: 40,
+        step: 1,
+        format: (size) => `${Math.round(size)} mm`,
+        onInput: (size) => brush.update((b) => ({ ...b, size })),
+      }),
+      hint('Pick a kind of damage, then drag on the picture to paint it exactly where you want it.'),
+      buttonRow(
+        button('Undo stroke', () => store.set(undoStroke(store.get(), actions.page())), { className: 'secondary' }),
+        button(
+          'Clear',
+          () => {
+            const count = store.get().strokes.filter((stroke) => stroke.page === actions.page()).length;
+            if (count > 3 && !window.confirm(`Remove all ${count} painted strokes?`)) return;
+            store.set(clearStrokes(store.get(), actions.page()));
+          },
+          { className: 'secondary' },
+        ),
+      ),
+    ),
+  );
 
   if (medium.family !== 'sheet') {
     const light = () => store.get().light ?? { azimuth: medium.light.azimuth, elevation: medium.light.elevation };

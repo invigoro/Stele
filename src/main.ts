@@ -12,6 +12,7 @@ import { buildScene, type Scene } from './scene';
 import { defaultSettings, type Settings } from './settings';
 import { loadSaved, save, settingsFromUrl, urlHashFor } from './share';
 import { FONTS, loadFont, measureFont } from './text/fonts';
+import { attachBrush, undoStroke, type BrushState, type View } from './ui/brush';
 import { renderPanel, type PanelActions } from './ui/panel';
 import { Store } from './ui/store';
 
@@ -21,6 +22,7 @@ const stageMessage = element<HTMLParagraphElement>('stage-message');
 const stageStatus = element<HTMLParagraphElement>('stage-status');
 const controls = element<HTMLElement>('controls');
 const gpuInfoList = element<HTMLDListElement>('gpu-info');
+const brushCursor = element<HTMLElement>('brush-cursor');
 
 /** Preview renders stay under this many pixels so dragging sliders stays smooth. */
 const MAX_PREVIEW_PIXELS = 4_000_000;
@@ -34,6 +36,10 @@ async function start(): Promise<void> {
   const preview = new SceneRenderer(gpu, distanceField);
   const initial = (await settingsFromUrl(window.location.hash)) ?? loadSaved() ?? defaultSettings('marble');
   const store = new Store<Settings>(initial);
+  const brush = new Store<BrushState>({ tool: null, size: 10 });
+  const page = () => 0;
+  // What's on screen, so pointer positions can be mapped onto the object.
+  let view: View | null = null;
 
   const sceneFor = async (settings: Settings): Promise<Scene> => {
     const font = FONTS[settings.font];
@@ -94,8 +100,9 @@ async function start(): Promise<void> {
       }
       if (gl.isContextLost()) return;
       twgl.resizeCanvasToDisplaySize(canvas, window.devicePixelRatio);
-      const image = preview.render(scene, previewScale(scene), TRANSPARENT);
-      present(gpu, image, canvas, backdropColor());
+      const pxPerMm = previewScale(scene);
+      const image = preview.render(scene, pxPerMm, TRANSPARENT);
+      view = { scene, pxPerMm, placement: present(gpu, image, canvas, backdropColor()) };
       shown.add(scene.medium.shader);
       showStatus(null);
       showMessage(null);
@@ -137,6 +144,8 @@ async function start(): Promise<void> {
   };
 
   const actions: PanelActions = {
+    brush,
+    page,
     exportPng: (button) =>
       busy(button, 'Rendering…', async () => {
         const settings = store.get();
@@ -160,6 +169,17 @@ async function start(): Promise<void> {
   };
 
   renderPanel(controls, store, actions);
+  attachBrush({ canvas, cursor: brushCursor, brush, store, view: () => view, page });
+  window.addEventListener('keydown', (event) => {
+    // Ctrl/Cmd+Z undoes a painted stroke, unless the user is typing somewhere.
+    const typing = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
+    if (typing || !(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'z' || event.shiftKey) return;
+    const settings = store.get();
+    const undone = undoStroke(settings, page());
+    if (undone === settings) return;
+    event.preventDefault();
+    store.set(undone);
+  });
   store.subscribe(schedule);
   store.subscribe(remember);
   window.addEventListener('hashchange', async () => {

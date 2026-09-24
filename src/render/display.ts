@@ -2,6 +2,14 @@ import type { Gpu } from './gl';
 import { BLIT } from './programs';
 import type { Target } from './targets';
 
+/** Where an image was drawn on the canvas, in canvas pixels from the top left. */
+export interface Placement {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 /**
  * Draws a rendered image centred on the page's canvas over a backdrop colour,
  * shrinking it if it doesn't fit. `backdrop` is sRGB, 0–1.
@@ -11,7 +19,7 @@ export function present(
   image: Target,
   canvas: HTMLCanvasElement,
   backdrop: readonly [number, number, number],
-): void {
+): Placement {
   const { gl } = gpu;
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.viewport(0, 0, canvas.width, canvas.height);
@@ -29,4 +37,6 @@ export function present(
     { u_image: image.texture, u_viewport: [x, y, width, height], u_backdrop: backdrop },
     [x, y, width, height],
   );
+  // The viewport counts rows from the bottom; report from the top, like the page does.
+  return { x, y: canvas.height - y - height, width, height };
 }

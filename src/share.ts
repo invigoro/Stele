@@ -1,3 +1,4 @@
+import { MAX_POINTS, MAX_STROKES, PAINT_KINDS, quantize, type PaintKind, type Stroke } from './damage/paint';
 import { isMediumId, MEDIA, type MediumDef } from './media/media';
 import type { ShapeId } from './media/shapes';
 import type { MethodId } from './media/writing';
@@ -11,6 +12,29 @@ const MAX_TEXT = 4000;
 
 const clamp = (value: unknown, min: number, max: number, fallback: number) =>
   typeof value === 'number' && Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
+
+/** Valid strokes from untrusted data; anything malformed is dropped. */
+function sanitizeStrokes(data: unknown): Stroke[] {
+  if (!Array.isArray(data)) return [];
+  const strokes: Stroke[] = [];
+  for (const item of data.slice(0, MAX_STROKES)) {
+    if (!item || typeof item !== 'object') continue;
+    const { kind, radius, points, page } = item as Record<string, unknown>;
+    if (!PAINT_KINDS.includes(kind as PaintKind) || !Array.isArray(points)) continue;
+    const valid = points
+      .slice(0, MAX_POINTS)
+      .filter((p): p is [number, number] => Array.isArray(p) && p.length === 2 && p.every((n) => typeof n === 'number' && Number.isFinite(n)))
+      .map(([u, v]): [number, number] => [quantize(Math.min(2, Math.max(-1, u))), quantize(Math.min(2, Math.max(-1, v)))]);
+    if (valid.length === 0) continue;
+    strokes.push({
+      kind: kind as PaintKind,
+      radius: clamp(radius, 0.002, 0.5, 0.03),
+      points: valid,
+      page: Math.round(clamp(page, 0, 99, 0)),
+    });
+  }
+  return strokes;
+}
 
 /**
  * Turns anything (a decoded link, stored settings from an older version) into valid
@@ -54,6 +78,7 @@ export function sanitizeSettings(data: unknown): Settings | null {
       Object.entries(base.damageMix).map(([id, weight]) => [id, clamp(mixIn[id], 0, 1, weight ?? 0)]),
     ),
     fade: clamp(input.fade, 0, 1, base.fade),
+    strokes: sanitizeStrokes(input.strokes),
     light:
       lightIn && typeof lightIn === 'object'
         ? {

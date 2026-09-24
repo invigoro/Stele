@@ -1,4 +1,5 @@
 import { FEATURE_ROWS, MAX_FEATURES, packFeatures } from '../damage/features';
+import { rasterizePaint } from '../damage/paint';
 import { rasterizeCracks } from '../damage/rasterizeCracks';
 import { lightDirection, type MediumDef } from '../media/media';
 import { shapeParams, SHAPES } from '../media/shapes';
@@ -18,6 +19,16 @@ import {
   type MultiTarget,
   type Target,
 } from './targets';
+
+/** Resets a canvas to a single black pixel. */
+function blankCanvas(canvas: HTMLCanvasElement): void {
+  canvas.width = 1;
+  canvas.height = 1;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Canvas 2D is unavailable');
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, 1, 1);
+}
 
 /** Straight-alpha RGBA, 0–1. */
 export type Rgba = readonly [number, number, number, number];
@@ -63,10 +74,13 @@ export class SceneRenderer {
   private readonly canvas = document.createElement('canvas');
   private mask: WebGLTexture | null = null;
   private crackMask: WebGLTexture | null = null;
+  private readonly paintCanvases = [document.createElement('canvas'), document.createElement('canvas')] as const;
+  /** Painted damage: break, wear and stain; and burning. Always real textures (see blankPaint). */
+  private paint: [WebGLTexture, WebGLTexture] | null = null;
   private features: WebGLTexture | null = null;
   private targets: Targets | null = null;
   private warmTarget: MultiTarget | null = null;
-  private keys = { mask: '', cracks: '', features: '' };
+  private keys = { mask: '', cracks: '', features: '', paint: '' };
 
   constructor(gpu: Gpu, distanceField: DistanceField) {
     this.gpu = gpu;
@@ -106,6 +120,20 @@ export class SceneRenderer {
       this.crackMask = uploadCanvas(gl, this.crackMask, this.canvas);
       this.distanceField.compute(this.crackMask, targets.cracks, 1 / pxPerMm);
       this.keys.cracks = cracksKey;
+    }
+
+    // Painted damage. Without strokes, 1-pixel blank textures stand in: drawing with no
+    // texture bound would make the driver compile a different version of the shader.
+    const paintKey = JSON.stringify([scene.strokes, scene.width, scene.height, width, height, pxPerMm]);
+    if (paintKey !== this.keys.paint || !this.paint) {
+      const [main, burn] = this.paintCanvases;
+      if (scene.strokes.length > 0) {
+        rasterizePaint(scene.strokes, scene, raster, main, burn);
+      } else {
+        for (const canvas of this.paintCanvases) blankCanvas(canvas);
+      }
+      this.paint = [uploadCanvas(gl, this.paint?.[0] ?? null, main), uploadCanvas(gl, this.paint?.[1] ?? null, burn)];
+      this.keys.paint = paintKey;
     }
 
     const packed = packFeatures(scene.features);
@@ -156,6 +184,9 @@ export class SceneRenderer {
       u_protectCount: Math.min(scene.protect.length, MAX_PROTECTED),
       u_crackDistance: targets.cracks.texture,
       u_hasCracks: hasCracks ? 1 : 0,
+      u_paint: this.paint[0],
+      u_paintBurn: this.paint[1],
+      u_hasPaint: scene.strokes.length > 0 ? 1 : 0,
       u_soot: fields.soot,
       u_lichen: fields.lichen,
       u_pitting: fields.pitting,
@@ -194,7 +225,7 @@ export class SceneRenderer {
    * compiled already (see Gpu.whenReady). Returns false if nothing has been rendered yet.
    */
   warmUp(medium: MediumDef): boolean {
-    if (!this.targets || !this.mask || !this.features) return false;
+    if (!this.targets || !this.mask || !this.features || !this.paint) return false;
     const { gl } = this.gpu;
     this.warmTarget ??= createMultiTarget(gl, 1, 1, ['rgba16f', 'rgba8']);
     const noise = noiseTextures(this.gpu);
@@ -203,6 +234,8 @@ export class SceneRenderer {
       u_textMask: this.mask,
       u_features: this.features,
       u_crackDistance: this.targets.cracks.texture,
+      u_paint: this.paint?.[0],
+      u_paintBurn: this.paint?.[1],
       u_noise: noise.noise,
       u_random: noise.random,
     });
@@ -227,11 +260,12 @@ export class SceneRenderer {
     this.releaseTargets();
     if (this.warmTarget) deleteTarget(gl, this.warmTarget);
     this.warmTarget = null;
-    for (const texture of [this.mask, this.crackMask, this.features]) if (texture) gl.deleteTexture(texture);
+    for (const texture of [this.mask, this.crackMask, this.features, ...(this.paint ?? [])]) if (texture) gl.deleteTexture(texture);
+    this.paint = null;
     this.mask = null;
     this.crackMask = null;
     this.features = null;
-    this.keys = { mask: '', cracks: '', features: '' };
+    this.keys = { mask: '', cracks: '', features: '', paint: '' };
   }
 
   private targetsFor(width: number, height: number): Targets {
@@ -249,6 +283,7 @@ export class SceneRenderer {
       // The distance fields must be recomputed into the new targets.
       this.keys.mask = '';
       this.keys.cracks = '';
+      this.keys.paint = '';
     }
     return this.targets;
   }
