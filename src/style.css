@@ -170,8 +170,14 @@ button.secondary {
 }
 
 button.secondary + button.secondary,
-button.primary + .checkbox + button.secondary {
+button.primary + button.secondary,
+button.primary + .checkbox + button.secondary,
+button.secondary + .checkbox + button.secondary {
   margin-top: 8px;
+}
+
+button[hidden] {
+  display: none;
 }
 
 .checkbox {
@@ -354,6 +360,39 @@ button.primary + .checkbox + button.secondary {
   width: auto;
 }
 
+.pager {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px;
+  font-size: 0.9rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.15);
+  transform: translateX(-50%);
+}
+
+.pager[hidden] {
+  display: none;
+}
+
+.pager button {
+  padding: 0 12px;
+  font-size: 1.2rem;
+  line-height: 1.6;
+  border-radius: 999px;
+}
+
+.pager button:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
 .stage-status {
   position: absolute;
   top: 12px;
@@ -399,7 +438,8 @@ button.primary + .checkbox + button.secondary {
   }
 }
 
-/* Printing shows only the handout image, at its real size (see export/print.ts). */
+/* Printing shows only the handout's pages, each on its own sheet at its real size
+   (see export/print.ts). */
 .print-sheet {
   display: none;
 }
@@ -417,12 +457,19 @@ button.primary + .checkbox + button.secondary {
 
   .print-sheet {
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    align-items: center;
   }
 
   .print-sheet img {
+    display: block;
     max-width: 100%;
     max-height: 100vh;
     object-fit: contain;
+    break-inside: avoid;
+  }
+
+  .print-sheet img + img {
+    break-before: page;
   }
 }

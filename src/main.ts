@@ -1,14 +1,15 @@
 import './style.css';
 import * as twgl from 'twgl.js';
 import { download, renderPng } from './export/exportPng';
-import { printImage } from './export/print';
+import { printImages } from './export/print';
+import { zip } from './export/zip';
 import { DistanceField } from './render/distanceField';
 import { present } from './render/display';
 import { createContext, Gpu, readGpuInfo, type GpuInfo } from './render/gl';
 import { surfaceProgram } from './render/programs';
 import { imageSize, SceneRenderer, TRANSPARENT, WHITE } from './render/renderer';
 import { MEDIA } from './media/media';
-import { buildScene, type Scene } from './scene';
+import { buildScenes, type Scene } from './scene';
 import { defaultSettings, type Settings } from './settings';
 import { loadSaved, save, settingsFromUrl, urlHashFor } from './share';
 import { FONTS, loadFont, measureFont } from './text/fonts';
@@ -23,6 +24,10 @@ const stageStatus = element<HTMLParagraphElement>('stage-status');
 const controls = element<HTMLElement>('controls');
 const gpuInfoList = element<HTMLDListElement>('gpu-info');
 const brushCursor = element<HTMLElement>('brush-cursor');
+const pager = element<HTMLElement>('pager');
+const pageLabel = element<HTMLElement>('page-label');
+const pagePrev = element<HTMLButtonElement>('page-prev');
+const pageNext = element<HTMLButtonElement>('page-next');
 
 /** Preview renders stay under this many pixels so dragging sliders stays smooth. */
 const MAX_PREVIEW_PIXELS = 4_000_000;
@@ -37,14 +42,30 @@ async function start(): Promise<void> {
   const initial = (await settingsFromUrl(window.location.hash)) ?? loadSaved() ?? defaultSettings('marble');
   const store = new Store<Settings>(initial);
   const brush = new Store<BrushState>({ tool: null, size: 10 });
-  const page = () => 0;
+  // The page on screen, for handouts that run to more than one.
+  let currentPage = 0;
+  let pageCount = 1;
+  const page = () => currentPage;
   // What's on screen, so pointer positions can be mapped onto the object.
   let view: View | null = null;
 
-  const sceneFor = async (settings: Settings): Promise<Scene> => {
+  /** Every page of the handout. */
+  const scenesFor = async (settings: Settings): Promise<Scene[]> => {
     const font = FONTS[settings.font];
     await loadFont(font);
-    return buildScene(settings, measureFont(font));
+    return buildScenes(settings, measureFont(font));
+  };
+
+  const showPager = () => {
+    pager.hidden = pageCount < 2;
+    pageLabel.textContent = `Page ${currentPage + 1} of ${pageCount}`;
+    pagePrev.disabled = currentPage === 0;
+    pageNext.disabled = currentPage >= pageCount - 1;
+    const allPages = controls.querySelector<HTMLButtonElement>('.all-pages');
+    if (allPages && !allPages.disabled) {
+      allPages.hidden = pageCount < 2;
+      allPages.textContent = `Download all ${pageCount} pages (.zip)`;
+    }
   };
 
   // Getting a medium's surface shader ready costs about a second the first time: the
@@ -90,8 +111,12 @@ async function start(): Promise<void> {
     const stale = () => mine !== generation;
     const settings = store.get();
     try {
-      const scene = await sceneFor(settings);
+      const scenes = await scenesFor(settings);
       if (stale()) return;
+      pageCount = scenes.length;
+      currentPage = Math.min(currentPage, pageCount - 1);
+      showPager();
+      const scene = scenes[currentPage];
       if (!preview.isReady(scene)) {
         // Keep the last image up (the page stays usable) while the shaders finish.
         showStatus(`Preparing ${scene.medium.label.toLowerCase()}…`);
@@ -149,15 +174,36 @@ async function start(): Promise<void> {
     exportPng: (button) =>
       busy(button, 'Rendering…', async () => {
         const settings = store.get();
+        const scenes = await scenesFor(settings);
+        const scene = scenes[Math.min(currentPage, scenes.length - 1)];
         const background = settings.transparent ? TRANSPARENT : WHITE;
-        const blob = await renderPng(gpu, distanceField, await sceneFor(settings), PRINT_DPI, background);
-        download(blob, `stele-${settings.medium}-${settings.seeds.material}.png`);
+        const blob = await renderPng(gpu, distanceField, scene, PRINT_DPI, background);
+        const suffix = scenes.length > 1 ? `-page-${scene.page + 1}` : '';
+        download(blob, `${fileStem(settings)}${suffix}.png`);
+      }),
+    exportAllPages: (button) =>
+      busy(button, 'Rendering…', async () => {
+        const settings = store.get();
+        const scenes = await scenesFor(settings);
+        const background = settings.transparent ? TRANSPARENT : WHITE;
+        const files = [];
+        for (const scene of scenes) {
+          button.textContent = `Rendering page ${scene.page + 1} of ${scenes.length}…`;
+          const blob = await renderPng(gpu, distanceField, scene, PRINT_DPI, background);
+          files.push({ name: `page-${scene.page + 1}.png`, data: new Uint8Array(await blob.arrayBuffer()) });
+        }
+        download(new Blob([zip(files)], { type: 'application/zip' }), `${fileStem(settings)}-pages.zip`);
       }),
     print: (button) =>
       busy(button, 'Preparing…', async () => {
-        const scene = await sceneFor(store.get());
-        const blob = await renderPng(gpu, distanceField, scene, PRINT_DPI, WHITE);
-        await printImage(blob, scene.width + 2 * scene.margin, scene.height + 2 * scene.margin);
+        const scenes = await scenesFor(store.get());
+        const pages = [];
+        for (const scene of scenes) {
+          if (scenes.length > 1) button.textContent = `Preparing page ${scene.page + 1} of ${scenes.length}…`;
+          const blob = await renderPng(gpu, distanceField, scene, PRINT_DPI, WHITE);
+          pages.push({ blob, widthMm: scene.width + 2 * scene.margin, heightMm: scene.height + 2 * scene.margin });
+        }
+        await printImages(pages);
       }),
     copyLink: (button) =>
       busy(button, 'Copying…', async () => {
@@ -170,6 +216,15 @@ async function start(): Promise<void> {
 
   renderPanel(controls, store, actions);
   attachBrush({ canvas, cursor: brushCursor, brush, store, view: () => view, page });
+  const turnPage = (by: number) => {
+    const next = Math.min(Math.max(0, currentPage + by), pageCount - 1);
+    if (next === currentPage) return;
+    currentPage = next;
+    showPager();
+    schedule();
+  };
+  pagePrev.addEventListener('click', () => turnPage(-1));
+  pageNext.addEventListener('click', () => turnPage(1));
   window.addEventListener('keydown', (event) => {
     // Ctrl/Cmd+Z undoes a painted stroke, unless the user is typing somewhere.
     const typing = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
@@ -195,6 +250,11 @@ async function start(): Promise<void> {
     showMessage('Lost the GPU context. Reload the page if it doesn’t come back.');
   });
   schedule();
+}
+
+/** The start of a download's file name, such as "stele-paper-1234567". */
+function fileStem(settings: Settings): string {
+  return `stele-${settings.medium}-${settings.seeds.material}`;
 }
 
 /** Pixels per mm that fit the whole image in the stage, within the pixel budget. */

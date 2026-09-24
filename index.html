@@ -29,9 +29,14 @@
         <div id="brush-cursor" class="brush-cursor" hidden></div>
         <p id="stage-status" class="stage-status" role="status" hidden></p>
         <p id="stage-message" class="stage-message" role="alert" hidden></p>
+        <nav id="pager" class="pager" aria-label="Pages" hidden>
+          <button id="page-prev" type="button" aria-label="Previous page">‹</button>
+          <span id="page-label" aria-live="polite"></span>
+          <button id="page-next" type="button" aria-label="Next page">›</button>
+        </nav>
       </main>
     </div>
-    <div id="print-sheet" class="print-sheet"><img alt="" /></div>
+    <div id="print-sheet" class="print-sheet"></div>
     <noscript>Stele needs JavaScript to render.</noscript>
     <script type="module" src="/src/main.ts"></script>
   </body>

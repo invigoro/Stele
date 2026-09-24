@@ -19,9 +19,14 @@ to share with players or print, where damage and fading make it harder for playe
   - 🎲 rerolls where the damage or fading falls.
 - **Decide what players can read:** wrap words in `[[double brackets]]` to guarantee they're
   destroyed, or in `{{double braces}}` to keep damage off them.
+- **Paint damage by hand:** pick a brush (chip, wear away, stain or scorch on stone; hole, rub out,
+  water or burn on paper…) and drag on the picture. Ctrl+Z undoes a stroke.
+- **Write long letters:** on paper, parchment and papyrus, text that doesn't fit continues onto
+  more pages (or shrinks to fit, if you prefer). A line with just `---` starts a new page.
 - **Start from a preset** such as "Roman epitaph", "Burnt letter" or "Dwarven waystone".
-- **Take it to the table:** download a 300 DPI PNG (optionally transparent, for virtual tabletops),
-  print it at true size, or copy a link. The page's URL always describes the current handout.
+- **Take it to the table:** download a 300 DPI PNG (optionally transparent, for virtual tabletops)
+  or every page as a ZIP, print all pages at true size, or copy a link. The page's URL always
+  describes the current handout.
 
 ## Development
 

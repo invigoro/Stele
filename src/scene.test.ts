@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MEDIA, type MediumId } from './media/media';
 import { textBox } from './media/shapes';
-import { buildScene } from './scene';
+import { buildScene, buildScenes } from './scene';
 import { changeMedium, defaultSettings, type Seeds } from './settings';
 import type { Measure } from './text/layout';
 
@@ -167,5 +167,52 @@ describe('obliteration coverage', () => {
         expect(Math.sqrt(Math.sqrt(qx ** 4 + qy ** 4))).toBeLessThan(1);
       }
     }
+  });
+});
+
+describe('pages', () => {
+  const long = Array.from({ length: 60 }, (_, i) => `Line ${i + 1} of the survey party's final report.`).join(' ');
+
+  it('continues long letters onto more pages, each with its own sheet and damage', () => {
+    const scenes = buildScenes({ ...defaultSettings('paper', seeds), text: long, textEdited: true, damage: 1 }, mono);
+    expect(scenes.length).toBeGreaterThan(1);
+    expect(scenes.every((scene, i) => scene.page === i && scene.pageCount === scenes.length)).toBe(true);
+    expect(scenes[1].offsets.material).not.toEqual(scenes[0].offsets.material);
+    expect(scenes[1].offsets.damage).not.toEqual(scenes[0].offsets.damage);
+    // All pages share one text size.
+    expect(new Set(scenes.map((scene) => scene.drawing.size)).size).toBe(1);
+    for (const scene of scenes) {
+      for (const run of scene.drawing.runs) expect(run.y).toBeLessThan(scene.textBox.y + scene.textBox.height + 1);
+    }
+  });
+
+  it('keeps one-page handouts exactly as before', () => {
+    const settings = defaultSettings('marble', seeds);
+    const [only] = buildScenes(settings, mono);
+    expect(buildScenes(settings, mono)).toHaveLength(1);
+    expect(only.offsets.material).toEqual(buildScene(settings, mono).offsets.material);
+    expect(only.drawing).toEqual(buildScene(settings, mono).drawing);
+  });
+
+  it('shrinks text onto one page in fit mode, and splits at --- lines either way', () => {
+    const fit = buildScenes({ ...defaultSettings('paper', seeds), text: long, textEdited: true, pages: 'fit' }, mono);
+    expect(fit).toHaveLength(1);
+    const split = buildScenes({ ...defaultSettings('marble', seeds), text: 'ONE\n---\nTWO', textEdited: true }, mono);
+    expect(split.map((scene) => scene.drawing.runs.map((run) => run.text).join(''))).toEqual(['ONE', 'TWO']);
+  });
+
+  it('puts painted strokes and marked words on their own page', () => {
+    const settings = {
+      ...defaultSettings('paper', seeds),
+      text: 'First page.\n---\nThe key is [[here]].',
+      textEdited: true,
+      damage: 0,
+      strokes: [{ kind: 'break' as const, radius: 0.02, points: [[0.5, 0.5]] as [number, number][], page: 1 }],
+    };
+    const [first, second] = buildScenes(settings, mono);
+    expect(first.strokes).toEqual([]);
+    expect(second.strokes).toHaveLength(1);
+    expect(first.features.blots).toEqual([]);
+    expect(second.features.blots).toHaveLength(1);
   });
 });

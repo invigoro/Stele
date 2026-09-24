@@ -5,6 +5,7 @@ import type { ShapeId } from './media/shapes';
 import type { MethodId } from './media/writing';
 import type { FontId } from './text/fonts';
 import type { Align } from './text/layout';
+import type { PageMode } from './text/pages';
 import { randomSeed } from './util/rng';
 
 /** One seed per random aspect, so rerolling one leaves the others alone. */
@@ -30,6 +31,8 @@ export interface Settings {
   align: Align;
   /** Fraction (0.3–1) of the largest text size that fits. */
   textScale: number;
+  /** Shrink long text onto one page, or continue it onto more pages. */
+  pages: PageMode;
   /** Classical Roman letter forms: capitals, V for U, I for J, dots between words. */
   roman: boolean;
   /** Size of the object relative to the medium's usual size (0.5–1.5). */
@@ -64,6 +67,8 @@ export function defaultSettings(medium: MediumId, seeds: Seeds = randomSeeds()):
     font: def.font,
     align: def.align,
     textScale: 1,
+    // Letters run on to more sheets; inscriptions shrink to fit their stone or board.
+    pages: def.family === 'sheet' ? 'flow' : 'fit',
     roman: false,
     objectScale: 1,
     transparent: false,

@@ -70,6 +70,7 @@ export function sanitizeSettings(data: unknown): Settings | null {
     font: typeof input.font === 'string' && isFontId(input.font) ? input.font : base.font,
     align: input.align === 'left' || input.align === 'center' || input.align === 'right' ? input.align : base.align,
     textScale: clamp(input.textScale, 0.3, 1, base.textScale),
+    pages: input.pages === 'fit' || input.pages === 'flow' ? input.pages : base.pages,
     roman: typeof input.roman === 'boolean' ? input.roman : base.roman,
     objectScale: clamp(input.objectScale, 0.5, 1.5, base.objectScale),
     transparent: typeof input.transparent === 'boolean' ? input.transparent : base.transparent,

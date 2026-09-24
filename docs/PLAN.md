@@ -257,13 +257,15 @@ dialog, and the calibration page is deferred)*
 - mobile layout (the preview stays pinned at the top), and a clear message on browsers without
   WebGL2
 
+**After Phase 3** *(done)*: shader compile times cut (see Shader performance), damage painted on by
+hand, and long text flowing onto more pages, with every page printed or zipped together.
+
 **Backlog:**
 - media: bronze plaque, clay and wax tablets, leather, chalk on slate
 - writing methods: pencil, typewriter, burned-in lettering
 - extras: wax seals, a signature in a different hand
 - converting text to runes
-- painting damage onto the preview by hand
-- several handouts per sheet, PDF export, and a "photo mode" showing the object on a table
+- PDF export, and a "photo mode" showing the object on a table
 - offline use
 
 ## Risks

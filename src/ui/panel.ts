@@ -7,6 +7,7 @@ import { applyPreset, PRESETS } from '../presets';
 import { changeMedium, type Seeds, type Settings } from '../settings';
 import { FONTS, type FontId } from '../text/fonts';
 import type { Align } from '../text/layout';
+import type { PageMode } from '../text/pages';
 import { randomSeed } from '../util/rng';
 import { clearStrokes, undoStroke, type BrushState } from './brush';
 import { button, buttonRow, checkbox, hint, section, segmented, select, slider, textArea } from './controls';
@@ -17,6 +18,7 @@ export interface PanelActions {
   /** The page being shown, for painting and undo. */
   page: () => number;
   exportPng: (button: HTMLButtonElement) => void;
+  exportAllPages: (button: HTMLButtonElement) => void;
   print: (button: HTMLButtonElement) => void;
   copyLink: (button: HTMLButtonElement) => void;
 }
@@ -172,6 +174,16 @@ export function renderPanel(container: HTMLElement, store: Store<Settings>, acti
         checked: settings.roman,
         onChange: (roman) => change({ roman }),
       }),
+      select<PageMode>({
+        label: 'Long text',
+        value: settings.pages,
+        options: [
+          { value: 'flow', label: 'Continue onto more pages' },
+          { value: 'fit', label: 'Shrink to fit one page' },
+        ],
+        onChange: (pages) => change({ pages }),
+      }),
+      hint('A line with just <code>---</code> starts a new page.'),
     ),
     section(
       'Wear',
@@ -275,12 +287,18 @@ export function renderPanel(container: HTMLElement, store: Store<Settings>, acti
   }
 
   const exportButton = button('Download PNG · 300 DPI', () => actions.exportPng(exportButton), { className: 'primary' });
+  // Shown by main.ts when the handout has more than one page.
+  const allPagesButton = button('Download all pages (.zip)', () => actions.exportAllPages(allPagesButton), {
+    className: 'secondary all-pages',
+  });
+  allPagesButton.hidden = true;
   const printButton = button('Print at actual size', () => actions.print(printButton), { className: 'secondary' });
   const linkButton = button('Copy link to this handout', () => actions.copyLink(linkButton), { className: 'secondary' });
   sections.push(
     section(
       'Output',
       exportButton,
+      allPagesButton,
       checkbox({
         label: 'Transparent background (for virtual tabletops)',
         checked: settings.transparent,
