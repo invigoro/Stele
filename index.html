@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Turn text into weathered inscriptions and aged documents for printable tabletop RPG handouts."
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Stele</title>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="panel">
+        <header class="brand">
+          <h1>Stele</h1>
+          <p>Inscriptions and documents for tabletop handouts</p>
+        </header>
+
+        <section class="panel-section" aria-labelledby="check-heading">
+          <h2 id="check-heading">Renderer check</h2>
+          <p class="note">
+            Work in progress. For now this page draws a procedural test pattern to check that
+            WebGL2 rendering works on your device.
+          </p>
+          <div class="seed-row">
+            <span>Seed <output id="seed" class="mono"></output></span>
+            <button id="reroll" type="button">Reroll</button>
+          </div>
+          <dl id="gpu-info" class="caps"></dl>
+        </section>
+      </aside>
+
+      <main class="stage">
+        <canvas id="preview" role="img" aria-label="Procedural test pattern"></canvas>
+        <p id="stage-message" class="stage-message" role="alert" hidden></p>
+      </main>
+    </div>
+    <noscript>Stele needs JavaScript to render.</noscript>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
