@@ -1,7 +1,7 @@
-// Fractal Brownian motion: layered octaves of simplex noise, each at twice the
+// Fractal Brownian motion: layered octaves of gradient noise, each at twice the
 // frequency and half the amplitude of the one before. Returns roughly [-1, 1].
 
-#include "noise2d.glsl"
+#include "noise.glsl"
 
 // Rotating each octave keeps the layers' grids from lining up into visible streaks.
 const mat2 FBM_ROTATION = mat2(0.8, 0.6, -0.6, 0.8);

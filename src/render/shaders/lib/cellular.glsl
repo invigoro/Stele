@@ -1,8 +1,11 @@
-// Cellular (Worley) noise: one random feature point per unit cell.
+// Cellular (Worley) noise: one random feature point per unit cell. Each cell's random
+// values are read from a fixed texture of random bytes (see render/noise.ts) rather than
+// computed with sin-based hashes, which keeps shaders quick to compile.
 
-vec2 cellHash(vec2 cell) {
-  vec2 p = vec2(dot(cell, vec2(127.1, 311.7)), dot(cell, vec2(269.5, 183.3)));
-  return fract(sin(p) * 43758.5453);
+uniform sampler2D u_random; // 256 × 256 texels of random bytes, one texel per cell
+
+vec4 cellRandom(vec2 cell) {
+  return texelFetch(u_random, ivec2(mod(cell, 256.0)), 0);
 }
 
 // Distance to the nearest feature point (x), and a random value pair for that
@@ -15,12 +18,12 @@ vec3 worley(vec2 p) {
   for (int y = -1; y <= 1; y++) {
     for (int x = -1; x <= 1; x++) {
       vec2 offset = vec2(float(x), float(y));
-      vec2 h = cellHash(cell + offset);
-      vec2 d = offset + h - f;
+      vec4 r = cellRandom(cell + offset);
+      vec2 d = offset + r.xy - f;
       float distance2 = dot(d, d);
       if (distance2 < best) {
         best = distance2;
-        bestHash = cellHash(cell + offset + 17.0);
+        bestHash = r.zw;
       }
     }
   }

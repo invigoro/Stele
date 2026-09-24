@@ -1,13 +1,14 @@
 import { FEATURE_ROWS, MAX_FEATURES, packFeatures } from '../damage/features';
 import { rasterizeCracks } from '../damage/rasterizeCracks';
-import { lightDirection } from '../media/media';
+import { lightDirection, type MediumDef } from '../media/media';
 import { shapeParams, SHAPES } from '../media/shapes';
 import { WRITING_CODES } from '../media/writing';
 import type { Scene } from '../scene';
 import { rasterizeText } from '../text/rasterize';
 import type { DistanceField } from './distanceField';
 import type { Gpu } from './gl';
-import { shaderSource, surfaceShader } from './shaders';
+import { noiseTextures } from './noise';
+import { programsFor, SHADE, surfaceProgram } from './programs';
 import {
   createMultiTarget,
   createTarget,
@@ -64,11 +65,22 @@ export class SceneRenderer {
   private crackMask: WebGLTexture | null = null;
   private features: WebGLTexture | null = null;
   private targets: Targets | null = null;
+  private warmTarget: MultiTarget | null = null;
   private keys = { mask: '', cracks: '', features: '' };
 
   constructor(gpu: Gpu, distanceField: DistanceField) {
     this.gpu = gpu;
     this.distanceField = distanceField;
+  }
+
+  /** Whether everything needed to render the scene has compiled. */
+  isReady(scene: Scene): boolean {
+    return programsFor(scene.medium).every((spec) => this.gpu.isReady(spec));
+  }
+
+  /** Resolves once the scene's shaders have compiled, without blocking the page meanwhile. */
+  whenReady(scene: Scene): Promise<void> {
+    return this.gpu.whenReady(programsFor(scene.medium));
   }
 
   render(scene: Scene, pxPerMm: number, background: Rgba): Target {
@@ -105,10 +117,14 @@ export class SceneRenderer {
 
     const { medium, method, fields } = scene;
     const color = method.color ?? [0, 0, 0];
-    gpu.draw(gpu.program(`surface:${medium.shader}`, () => surfaceShader(medium.shader)), targets.surface, {
+    const noise = noiseTextures(gpu);
+    gpu.draw(surfaceProgram(medium), targets.surface, {
       u_sizeMm: [scene.width, scene.height],
       u_originMm: originMm,
       u_pxPerMm: pxPerMm,
+      u_noise: noise.noise,
+      u_noisePeriod: noise.period,
+      u_random: noise.random,
       u_materialSeed: scene.offsets.material,
       u_fadeSeed: scene.offsets.fade,
       u_damageSeed: scene.offsets.damage,
@@ -155,7 +171,7 @@ export class SceneRenderer {
     const deepDamage = scene.features.chips.length > 0 || scene.features.cuts.length > 0 || fields.flaking > 0;
     const relief = 0.15 * scene.drawing.size + (deepDamage ? 6 : 1) + (hasCracks ? 2.5 : 0);
     const shadowReach = Math.min(30, relief / Math.tan((light.elevation * Math.PI) / 180));
-    gpu.draw(gpu.program('shade', () => shaderSource('shade.frag')), targets.output, {
+    gpu.draw(SHADE, targets.output, {
       u_surface: targets.surface.textures[0],
       u_albedo: targets.surface.textures[1],
       u_pxPerMm: pxPerMm,
@@ -168,6 +184,30 @@ export class SceneRenderer {
       u_background: background,
     });
     return targets.output;
+  }
+
+  /**
+   * Draws a medium's surface shader once into a 1-pixel target, with this renderer's
+   * textures bound. Graphics drivers finish compiling a shader on its first draw, which
+   * for these shaders ties up the GPU for most of a second; doing it ahead of time, while
+   * the user is idle, makes the medium's first appearance instant. The shader must have
+   * compiled already (see Gpu.whenReady). Returns false if nothing has been rendered yet.
+   */
+  warmUp(medium: MediumDef): boolean {
+    if (!this.targets || !this.mask || !this.features) return false;
+    const { gl } = this.gpu;
+    this.warmTarget ??= createMultiTarget(gl, 1, 1, ['rgba16f', 'rgba8']);
+    const noise = noiseTextures(this.gpu);
+    this.gpu.draw(surfaceProgram(medium), this.warmTarget, {
+      u_textDistance: this.targets.distance.texture,
+      u_textMask: this.mask,
+      u_features: this.features,
+      u_crackDistance: this.targets.cracks.texture,
+      u_noise: noise.noise,
+      u_random: noise.random,
+    });
+    gl.flush();
+    return true;
   }
 
   /** Reads the last rendered image back as straight-alpha RGBA rows, top row first. */
@@ -185,6 +225,8 @@ export class SceneRenderer {
   dispose(): void {
     const { gl } = this.gpu;
     this.releaseTargets();
+    if (this.warmTarget) deleteTarget(gl, this.warmTarget);
+    this.warmTarget = null;
     for (const texture of [this.mask, this.crackMask, this.features]) if (texture) gl.deleteTexture(texture);
     this.mask = null;
     this.crackMask = null;

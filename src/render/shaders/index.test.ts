@@ -10,7 +10,9 @@ describe('shader files', () => {
     expect(entries).toEqual(
       expect.arrayContaining(['fullscreen.vert', 'jfa-init.frag', 'jfa-step.frag', 'jfa-distance.frag', 'shade.frag', 'blit.frag']),
     );
-    expect(libraries).toEqual(expect.arrayContaining(['lib/noise2d.glsl', 'lib/fbm.glsl', 'surface/common.glsl']));
+    expect(libraries).toEqual(
+      expect.arrayContaining(['lib/noise.glsl', 'lib/classicnoise2d.glsl', 'lib/fbm.glsl', 'surface/common.glsl']),
+    );
   });
 
   it.each(entries)('%s expands and starts with #version 300 es', (name) => {
@@ -31,6 +33,8 @@ describe('surfaceShader', () => {
     expect(source).toContain('void buildSurface(');
     expect(source).toContain('void main()');
     // Each library appears once even though several files include it.
-    expect(source.match(/float snoise\(vec2 v\)/g)).toHaveLength(1);
+    expect(source.match(/float snoise\(vec2 p\)/g)).toHaveLength(1);
+    // Noise is read from the baked texture, never computed, which keeps compiling fast.
+    expect(source).not.toContain('pnoise(');
   });
 });

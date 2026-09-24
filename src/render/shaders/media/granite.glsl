@@ -13,9 +13,9 @@ void stoneFace(vec2 p, inout Surface s) {
   vec3 crystal = worley(q / 1.7);
   float pick = crystal.y;
   vec3 color = pick < 0.5 ? u_palette[1] : pick < 0.86 ? u_palette[0] : pick < 0.94 ? u_palette[2] : u_palette[3];
-  // Small dark flakes scattered through.
-  vec3 flake = worley(q / 0.7 + 5.0);
-  color = mix(color, u_palette[3], step(0.93, flake.y) * smoothstep(0.45, 0.3, flake.x) * detail(0.7));
+  // Small, angular dark flakes scattered through: a few whole cells of a finer grain.
+  vec3 flake = worley(q / 0.8 + 5.0);
+  color = mix(color, u_palette[3], step(0.95, flake.y) * detail(0.8));
   // No two crystals are quite the same shade.
   color *= 0.92 + 0.16 * crystal.z;
   // Crystals too small to see blend into their average colour rather than aliasing.

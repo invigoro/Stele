@@ -1,5 +1,5 @@
 import type { Gpu } from './gl';
-import { shaderSource } from './shaders';
+import { JFA_DISTANCE, JFA_INIT, JFA_STEP } from './programs';
 import { createTarget, deleteTarget, type Target } from './targets';
 
 /** Step sizes for jump flooding an image of the given size, plus one extra 1-step pass. */
@@ -30,13 +30,12 @@ export class DistanceField {
     const { gpu } = this;
     let [source, destination] = this.scratchFor(out.width, out.height);
 
-    gpu.draw(gpu.program('jfa-init', () => shaderSource('jfa-init.frag')), source, { u_mask: mask });
-    const step = gpu.program('jfa-step', () => shaderSource('jfa-step.frag'));
+    gpu.draw(JFA_INIT, source, { u_mask: mask });
     for (const size of jumpFloodSteps(out.width, out.height)) {
-      gpu.draw(step, destination, { u_seeds: source.texture, u_step: size });
+      gpu.draw(JFA_STEP, destination, { u_seeds: source.texture, u_step: size });
       [source, destination] = [destination, source];
     }
-    gpu.draw(gpu.program('jfa-distance', () => shaderSource('jfa-distance.frag')), out, {
+    gpu.draw(JFA_DISTANCE, out, {
       u_seeds: source.texture,
       u_mask: mask,
       u_mmPerPx: mmPerPx,

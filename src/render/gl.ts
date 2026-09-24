@@ -1,4 +1,5 @@
 import * as twgl from 'twgl.js';
+import type { ProgramSpec } from './programs';
 import { shaderSource } from './shaders';
 import type { MultiTarget, Target } from './targets';
 
@@ -17,6 +18,8 @@ export interface GpuInfo {
   floatRenderTargets: boolean;
   /** Linear filtering of 32-bit float textures (OES_texture_float_linear). */
   floatLinearFiltering: boolean;
+  /** Shaders compile on worker threads without freezing the page (KHR_parallel_shader_compile). */
+  parallelCompile: boolean;
 }
 
 export function createContext(canvas: HTMLCanvasElement): WebGL2RenderingContext {
@@ -31,6 +34,7 @@ export function readGpuInfo(gl: WebGL2RenderingContext): GpuInfo {
     maxTextureSize: gl.getParameter(gl.MAX_TEXTURE_SIZE),
     floatRenderTargets: gl.getExtension('EXT_color_buffer_float') !== null,
     floatLinearFiltering: gl.getExtension('OES_texture_float_linear') !== null,
+    parallelCompile: gl.getExtension('KHR_parallel_shader_compile') !== null,
   };
 }
 
@@ -43,26 +47,32 @@ function rendererName(gl: WebGL2RenderingContext): string {
   return debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : reported;
 }
 
-/** Compiles and links a vertex + fragment shader pair given as source code. */
-export function createProgram(
-  gl: WebGL2RenderingContext,
-  name: string,
-  vertexSource: string,
-  fragmentSource: string,
-): twgl.ProgramInfo {
-  const errors: string[] = [];
-  const program = twgl.createProgramInfo(gl, [vertexSource, fragmentSource], {
-    errorCallback: (message: string) => errors.push(message),
-  });
-  // twgl returns null (despite its typings) when compiling or linking fails.
-  if (!program) throw new Error(`Could not build shader ${name}:\n${errors.join('\n')}`);
-  return program;
+/** Appends the source lines that a compiler log's "0:<line>:" references point at. */
+function withSourceLines(log: string, source: string): string {
+  const lines = source.split('\n');
+  const quoted = [...new Set([...log.matchAll(/\b0:(\d+):/g)].map((m) => Number(m[1])))]
+    .slice(0, 5)
+    .map((n) => `${n}: ${lines[n - 1]?.trim() ?? ''}`);
+  return quoted.length ? `${log}\n${quoted.join('\n')}` : log;
 }
 
-/** Holds the WebGL2 context and every compiled fullscreen-pass program. */
+interface Compiling {
+  program: WebGLProgram;
+  shaders: { shader: WebGLShader; source: string }[];
+}
+
+/**
+ * Holds the WebGL2 context and every fullscreen-pass program. Compiling a big shader
+ * takes over a second on some systems (Direct3D inlines every noise call), so programs
+ * can be compiled in the background: prepare() starts one, whenReady() waits for it
+ * without blocking, and program() gets it, finishing the compile first if need be.
+ */
 export class Gpu {
   readonly gl: WebGL2RenderingContext;
-  private readonly programs = new Map<string, twgl.ProgramInfo>();
+  /** Present when shaders compile on worker threads (KHR_parallel_shader_compile). */
+  private readonly parallel: KHR_parallel_shader_compile | null;
+  private readonly compiled = new Map<string, twgl.ProgramInfo>();
+  private readonly compiling = new Map<string, Compiling>();
   private readonly vertexSource = shaderSource('fullscreen.vert');
 
   constructor(gl: WebGL2RenderingContext) {
@@ -71,16 +81,81 @@ export class Gpu {
     if (!gl.getExtension('EXT_color_buffer_float')) {
       throw new Error('Stele needs float render targets (EXT_color_buffer_float), which this GPU lacks.');
     }
+    this.parallel = gl.getExtension('KHR_parallel_shader_compile');
   }
 
-  /** A fullscreen-pass program, compiled on first use. `source` gives the fragment shader. */
-  program(name: string, source: () => string): twgl.ProgramInfo {
-    let program = this.programs.get(name);
-    if (!program) {
-      program = createProgram(this.gl, name, this.vertexSource, source());
-      this.programs.set(name, program);
+  /** Whether programs compile in the background; without it, compiling blocks the page. */
+  get compilesInBackground(): boolean {
+    return this.parallel !== null;
+  }
+
+  /** Starts compiling a program, if it isn't compiled or compiling already. Doesn't wait. */
+  prepare(spec: ProgramSpec): void {
+    if (this.compiled.has(spec.name) || this.compiling.has(spec.name)) return;
+    const { gl } = this;
+    const program = gl.createProgram();
+    const sources: [number, string][] = [
+      [gl.VERTEX_SHADER, this.vertexSource],
+      [gl.FRAGMENT_SHADER, spec.source()],
+    ];
+    const shaders = sources.map(([type, source]) => {
+      const shader = gl.createShader(type);
+      if (!shader) throw new Error('Could not create a shader');
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      gl.attachShader(program, shader);
+      return { shader, source };
+    });
+    gl.linkProgram(program);
+    this.compiling.set(spec.name, { program, shaders });
+  }
+
+  /** Whether a program can be used without waiting for it to compile. */
+  isReady(spec: ProgramSpec): boolean {
+    if (this.compiled.has(spec.name)) return true;
+    const pending = this.compiling.get(spec.name);
+    if (!pending || !this.parallel) return false;
+    return this.gl.getProgramParameter(pending.program, this.parallel.COMPLETION_STATUS_KHR) === true;
+  }
+
+  /** Resolves once all the programs are ready, checking every frame so the page stays responsive. */
+  async whenReady(specs: readonly ProgramSpec[]): Promise<void> {
+    for (const spec of specs) this.prepare(spec);
+    if (this.parallel) {
+      while (!specs.every((spec) => this.isReady(spec))) {
+        await new Promise((resolve) => setTimeout(resolve, 16));
+      }
     }
-    return program;
+    for (const spec of specs) this.program(spec);
+  }
+
+  /** A program, ready to draw with. Blocks while it compiles if it isn't ready yet. */
+  program(spec: ProgramSpec): twgl.ProgramInfo {
+    const ready = this.compiled.get(spec.name);
+    if (ready) return ready;
+    this.prepare(spec);
+    const pending = this.compiling.get(spec.name);
+    if (!pending) throw new Error(`Shader ${spec.name} did not start compiling`);
+    this.compiling.delete(spec.name);
+
+    const { gl } = this;
+    const { program, shaders } = pending;
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      const logs = [
+        gl.getProgramInfoLog(program) ?? '',
+        ...shaders.map(({ shader, source }) => withSourceLines(gl.getShaderInfoLog(shader) ?? '', source)),
+      ].filter((log) => log.trim());
+      gl.deleteProgram(program);
+      for (const { shader } of shaders) gl.deleteShader(shader);
+      throw new Error(`Could not build shader ${spec.name}:\n${logs.join('\n')}`);
+    }
+    for (const { shader } of shaders) {
+      gl.detachShader(program, shader);
+      gl.deleteShader(shader);
+    }
+    const info = twgl.createProgramInfoFromProgram(gl, program);
+    this.compiled.set(spec.name, info);
+    return info;
   }
 
   /**
@@ -88,12 +163,13 @@ export class Gpu {
    * picks the area, in canvas pixels with the origin at the bottom left).
    */
   draw(
-    program: twgl.ProgramInfo,
+    spec: ProgramSpec,
     target: Target | MultiTarget | null,
     uniforms: Record<string, unknown>,
     viewport?: readonly [number, number, number, number],
   ): void {
     const { gl } = this;
+    const program = this.program(spec);
     gl.bindFramebuffer(gl.FRAMEBUFFER, target ? target.framebuffer : null);
     if (target) gl.viewport(0, 0, target.width, target.height);
     else if (viewport) gl.viewport(...viewport);
@@ -103,7 +179,13 @@ export class Gpu {
   }
 
   dispose(): void {
-    for (const program of this.programs.values()) this.gl.deleteProgram(program.program);
-    this.programs.clear();
+    const { gl } = this;
+    for (const info of this.compiled.values()) gl.deleteProgram(info.program);
+    for (const { program, shaders } of this.compiling.values()) {
+      gl.deleteProgram(program);
+      for (const { shader } of shaders) gl.deleteShader(shader);
+    }
+    this.compiled.clear();
+    this.compiling.clear();
   }
 }

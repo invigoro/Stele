@@ -278,6 +278,29 @@ dialog, and the calibration page is deferred)*
 - **Font licensing:** only openly licensed fonts get bundled, so no Trajan. Anything else comes
   through user upload.
 
+## Shader performance
+
+Each medium's surface shader is large, and getting one ready costs time twice: the browser
+compiles it, then the graphics driver finishes compiling it on its first draw. On Windows, Chrome
+runs WebGL through Direct3D, whose compiler inlines every function call. With noise computed in
+the shader (about 60 instructions per call, 40–60 calls per shader) that came to 1–1.8 s of
+compiling plus 0.6–3 s at the first draw, freezing the page each time a medium was first chosen.
+Measured on an RTX 3070; slower machines take longer.
+
+- **Noise comes from textures, not code.** A tiling gradient-noise texture is baked once at
+  startup (`render/noise.ts`, `noise-texture.frag`), and `snoise()` reads it: two instructions
+  instead of 60. Cellular noise reads a fixed random-bytes texture instead of hashing with `sin`.
+  This made compiling about 3× faster and the first-draw cost about 4× smaller.
+- **Compiling happens in the background** (`KHR_parallel_shader_compile`), starting only once the
+  first image is on screen: the browser compiles shaders of its own to show that first image, and
+  they wait behind ours if ours are already running.
+- **Each shader is drawn once off-screen while the user is idle** (no input for 1.5 s), one at a
+  time, so the driver's first-draw cost is paid when nobody is looking. The GPU is busy for up to
+  a second each time, which is invisible when nothing on screen is changing. After that, switching
+  medium is instant.
+- Browsers without background compiling compile each shader on first use, showing a "Preparing…"
+  note first.
+
 ## Decisions
 
 - US Letter is the default page size, with A4 and others available.

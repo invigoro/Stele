@@ -314,6 +314,27 @@ button.primary + .checkbox + button.secondary {
   display: none;
 }
 
+.stage-status {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  z-index: 1;
+  margin: 0;
+  padding: 4px 14px;
+  color: var(--text);
+  font-size: 0.85rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.15);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.stage-status[hidden] {
+  display: none;
+}
+
 /* On narrow screens the preview comes first and stays pinned at the top, so the
    result stays in view while the controls scroll beneath it. */
 @media (max-width: 720px) {

@@ -5,7 +5,9 @@ import { printImage } from './export/print';
 import { DistanceField } from './render/distanceField';
 import { present } from './render/display';
 import { createContext, Gpu, readGpuInfo, type GpuInfo } from './render/gl';
+import { surfaceProgram } from './render/programs';
 import { imageSize, SceneRenderer, TRANSPARENT, WHITE } from './render/renderer';
+import { MEDIA } from './media/media';
 import { buildScene, type Scene } from './scene';
 import { defaultSettings, type Settings } from './settings';
 import { loadSaved, save, settingsFromUrl, urlHashFor } from './share';
@@ -16,6 +18,7 @@ import { Store } from './ui/store';
 const canvas = element<HTMLCanvasElement>('preview');
 const stage = element<HTMLElement>('stage');
 const stageMessage = element<HTMLParagraphElement>('stage-message');
+const stageStatus = element<HTMLParagraphElement>('stage-status');
 const controls = element<HTMLElement>('controls');
 const gpuInfoList = element<HTMLDListElement>('gpu-info');
 
@@ -38,6 +41,34 @@ async function start(): Promise<void> {
     return buildScene(settings, measureFont(font));
   };
 
+  // Getting a medium's surface shader ready costs about a second the first time: the
+  // browser compiles it (which can happen in the background), then the graphics driver
+  // finishes compiling it on its first draw (which ties up the GPU). So once the first
+  // image is on screen, every shader compiles in the background, and then, while the
+  // user is idle, each is drawn once off-screen; switching medium later is instant.
+  // Without background compiling, each shader is compiled and drawn on first use.
+  let lastInput = performance.now();
+  for (const type of ['pointerdown', 'pointermove', 'keydown', 'wheel', 'input', 'change']) {
+    window.addEventListener(type, () => (lastInput = performance.now()), { capture: true, passive: true });
+  }
+  const shown = new Set<string>(); // shaders that have been drawn with
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+  let backgroundStarted = false;
+  const prepareRestInBackground = async () => {
+    if (backgroundStarted || !gpu.compilesInBackground) return;
+    backgroundStarted = true;
+    await sleep(500);
+    const media = Object.values(MEDIA);
+    for (const medium of media) await gpu.whenReady([surfaceProgram(medium)]);
+    for (const medium of media) {
+      while (performance.now() - lastInput < 1500 || document.hidden) await sleep(250);
+      if (shown.has(medium.shader)) continue;
+      if (!preview.warmUp(medium)) return;
+      shown.add(medium.shader);
+      await sleep(1500); // the GPU is busy for a moment; stay out of its way
+    }
+  };
+
   let frame = 0;
   const schedule = () => {
     frame ||= requestAnimationFrame(() => {
@@ -45,18 +76,34 @@ async function start(): Promise<void> {
       void draw();
     });
   };
+  // Draws can overlap (one may be waiting for a font or a shader when settings change);
+  // only the newest may touch the page.
+  let generation = 0;
   const draw = async () => {
+    const mine = ++generation;
+    const stale = () => mine !== generation;
     const settings = store.get();
     try {
       const scene = await sceneFor(settings);
-      if (store.get() !== settings) return schedule(); // changed while the font loaded
+      if (stale()) return;
+      if (!preview.isReady(scene)) {
+        // Keep the last image up (the page stays usable) while the shaders finish.
+        showStatus(`Preparing ${scene.medium.label.toLowerCase()}…`);
+        await preview.whenReady(scene);
+        if (stale()) return;
+      }
       if (gl.isContextLost()) return;
       twgl.resizeCanvasToDisplaySize(canvas, window.devicePixelRatio);
       const image = preview.render(scene, previewScale(scene), TRANSPARENT);
       present(gpu, image, canvas, backdropColor());
+      shown.add(scene.medium.shader);
+      showStatus(null);
       showMessage(null);
+      requestAnimationFrame(() => requestAnimationFrame(() => void prepareRestInBackground()));
     } catch (error) {
+      if (stale()) return;
       console.error(error);
+      showStatus(null);
       showMessage(error instanceof Error ? error.message : String(error));
     }
   };
@@ -156,10 +203,17 @@ function showGpuInfo(info: GpuInfo): void {
     ['Max texture', `${info.maxTextureSize} px (${Math.floor(info.maxTextureSize / 300)} in at 300 DPI)`],
     ['Float targets', info.floatRenderTargets ? 'yes' : 'no'],
     ['Float filtering', info.floatLinearFiltering ? 'yes' : 'no'],
+    ['Background compiling', info.parallelCompile ? 'yes' : 'no'],
   ];
   gpuInfoList.replaceChildren(
     ...rows.flatMap(([term, value]) => [textElement('dt', term), textElement('dd', value)]),
   );
+}
+
+/** A small note over the preview that doesn't hide it, such as "Preparing sandstone…". */
+function showStatus(text: string | null): void {
+  stageStatus.textContent = text ?? '';
+  stageStatus.hidden = text === null;
 }
 
 function showMessage(text: string | null): void {

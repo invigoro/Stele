@@ -2,7 +2,7 @@
 // and gloss maps. Positions are millimetres from the object's top-left corner, with
 // y pointing down the image (like the text canvas).
 
-#include "../lib/noise2d.glsl"
+#include "../lib/noise.glsl"
 #include "../lib/fbm.glsl"
 #include "../lib/cellular.glsl"
 #include "../lib/util.glsl"

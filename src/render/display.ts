@@ -1,5 +1,5 @@
 import type { Gpu } from './gl';
-import { shaderSource } from './shaders';
+import { BLIT } from './programs';
 import type { Target } from './targets';
 
 /**
@@ -24,7 +24,7 @@ export function present(
   const x = Math.round((canvas.width - width) / 2);
   const y = Math.round((canvas.height - height) / 2);
   gpu.draw(
-    gpu.program('blit', () => shaderSource('blit.frag')),
+    BLIT,
     null,
     { u_image: image.texture, u_viewport: [x, y, width, height], u_backdrop: backdrop },
     [x, y, width, height],

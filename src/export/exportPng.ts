@@ -14,6 +14,7 @@ export async function renderPng(
 ): Promise<Blob> {
   const renderer = new SceneRenderer(gpu, distanceField);
   try {
+    await renderer.whenReady(scene);
     renderer.render(scene, dpi / 25.4, background);
     const image = renderer.readPixels();
     const canvas = document.createElement('canvas');
