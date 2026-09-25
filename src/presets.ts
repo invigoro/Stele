@@ -57,8 +57,8 @@ export const PRESETS: Preset[] = [
       medium: 'granite',
       shape: 'fragment',
       font: 'noto-sans-runic',
-      // Elder Futhark: HERE LIES THE ROAD TO THE DEEP HALLS.
-      text: 'ᚺᛖᚱᛖ ᛚᛁᛖᛋ ᚦᛖ ᚱᛟᚨᛞ\nᛏᛟ ᚦᛖ ᛞᛖᛖᛈ ᚺᚨᛚᛚᛋ',
+      script: 'elder-futhark',
+      text: 'HERE LIES THE ROAD\nTO THE DEEP HALLS',
       damage: 0.5,
       fade: 0.3,
     },

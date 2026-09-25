@@ -23,11 +23,12 @@ import { textBox, type ShapeId } from './media/shapes';
 import { METHODS, type MethodDef, type Rgb } from './media/writing';
 import type { Settings } from './settings';
 import { FONTS, type FontDef } from './text/fonts';
-import { drawText, type Drawing } from './text/hand';
-import { layoutText, type Box, type Measure } from './text/layout';
+import { drawText, type Drawing, type Rule } from './text/hand';
+import { layoutText, type Box, type Measure, type TextLayout } from './text/layout';
 import { normalizeText, parseMarkup } from './text/markup';
 import { paginate } from './text/pages';
 import { romanize } from './text/roman';
+import { transliterate } from './text/scripts';
 import { mulberry32 } from './util/rng';
 
 /** Blank space around the object in the rendered image, mm. */
@@ -126,7 +127,9 @@ export function buildScenes(settings: Settings, measure: Measure): Scene[] {
   const padding = { x: medium.padding.x * scale, y: medium.padding.y * scale };
   const box = textBox(settings.shape, width, height, padding);
 
-  const source = normalizeText(settings.roman ? romanize(settings.text) : settings.text);
+  const written =
+    settings.script === 'latin' ? (settings.roman ? romanize(settings.text) : settings.text) : transliterate(settings.text, settings.script);
+  const source = normalizeText(written);
   const { text, spans } = parseMarkup(source);
   const layoutOptions = {
     box,
@@ -155,6 +158,8 @@ export function buildScenes(settings: Settings, measure: Measure): Scene[] {
     // Every page shares one text size, already scaled by the Size slider.
     const layout = layoutText({ ...layoutOptions, text: pageText.text, scale: 1, maxSize: size }, measure);
     const drawing = drawText(layout, measure, hand, seeds.hand, settings.seeds.hand);
+    // Cuneiform tablets were ruled: a line pressed in between each line of signs.
+    if (settings.script === 'cuneiform') drawing.rules = rulesBetween(layout, measure, box, seeds.hand);
     const pageEnd = pageText.start + pageText.text.length;
     const pageSpans = spans
       .filter((span) => span.end > pageText.start && span.start < pageEnd)
@@ -233,6 +238,17 @@ export function buildScenes(settings: Settings, measure: Measure): Scene[] {
         damage: noiseOffset(seeds.damage),
       },
     };
+  });
+}
+
+/** Ruled lines between each pair of lines of text, across the text area, not quite level. */
+function rulesBetween(layout: TextLayout, measure: Measure, box: Box, seed: number): Rule[] {
+  const random = mulberry32(seed ^ 0x5eed);
+  const lines = layout.lines.filter((line) => line.text.trim());
+  return lines.slice(1).map((line, i) => {
+    const y = (lines[i].baseline + measure.descent * layout.size + line.baseline - measure.ascent * layout.size) / 2;
+    const tilt = (random() - 0.5) * 0.004 * box.width;
+    return { x0: box.x, y0: y - tilt, x1: box.x + box.width, y1: y + tilt };
   });
 }
 

@@ -4,10 +4,11 @@ import { MEDIA, type MediumDef, type MediumId } from '../media/media';
 import { SHAPES, type ShapeId } from '../media/shapes';
 import { METHODS, type MethodId } from '../media/writing';
 import { applyPreset, PRESETS } from '../presets';
-import { changeMedium, changeMethod, type Seeds, type Settings } from '../settings';
+import { changeMedium, changeMethod, changeScript, type Seeds, type Settings } from '../settings';
 import { FONTS, type FontId } from '../text/fonts';
 import type { Align } from '../text/layout';
 import type { PageMode } from '../text/pages';
+import { SCRIPTS, type ScriptId } from '../text/scripts';
 import { randomSeed } from '../util/rng';
 import { BRUSH_SIZES, clearStrokes, undoStroke, type BrushState } from './brush';
 import { button, buttonRow, checkbox, hint, section, segmented, select, slider, textArea } from './controls';
@@ -143,6 +144,18 @@ export function renderPanel(container: HTMLElement, store: Store<Settings>, acti
         onInput: (text) => change({ text, textEdited: true }),
       }),
       hint('Wrap words in <code>[[…]]</code> to have them destroyed, or <code>{{…}}</code> to keep damage off them.'),
+      select<ScriptId>({
+        label: 'Script',
+        value: settings.script,
+        options: Object.entries(SCRIPTS).map(([value, script]) => ({ value: value as ScriptId, label: script.label })),
+        onChange: (script) => {
+          store.set(changeScript(store.get(), script));
+          rebuild(); // show the typeface it switched to
+        },
+      }),
+      ...(settings.script === 'latin'
+        ? []
+        : [hint('Type in English: it’s written out in the script as the handout is drawn.')]),
       select<FontId>({
         label: 'Style',
         value: settings.font,
@@ -178,11 +191,15 @@ export function renderPanel(container: HTMLElement, store: Store<Settings>, acti
         ],
         onChange: (align) => change({ align }),
       }),
-      checkbox({
-        label: 'Roman letter forms (V for U, dots between words)',
-        checked: settings.roman,
-        onChange: (roman) => change({ roman }),
-      }),
+      ...(settings.script === 'latin'
+        ? [
+            checkbox({
+              label: 'Roman letter forms (V for U, dots between words)',
+              checked: settings.roman,
+              onChange: (roman) => change({ roman }),
+            }),
+          ]
+        : []),
       select<PageMode>({
         label: 'Long text',
         value: settings.pages,

@@ -264,13 +264,14 @@ dialog, and the calibration page is deferred)*
 **After Phase 3** *(done)*: shader compile times cut (see Shader performance), damage painted on by
 hand, and long text flowing onto more pages, with every page printed or zipped together. Then PDF
 download, moss as a brush on stone, `[` and `]` for the brush size, and ink blots as a damage type
-on paper, parchment and papyrus.
+on paper, parchment and papyrus (and as a brush). Then a bronze plaque, a typewriter, a clay
+tablet, and scripts: English typed in can be shown in three runic alphabets or in cuneiform, as
+Akkadian syllable signs.
 
 **Backlog:**
 - media: wax tablets, leather, chalk on slate
 - writing methods: pencil, burned-in lettering
 - extras: wax seals, a signature in a different hand
-- converting text to runes
 - a "photo mode" showing the object on a table
 - offline use
 

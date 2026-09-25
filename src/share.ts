@@ -1,4 +1,5 @@
 import { MAX_POINTS, MAX_STROKES, PAINT_KINDS, quantize, type PaintKind, type Stroke } from './damage/paint';
+import { isScriptId } from './text/scripts';
 import { isMediumId, MEDIA, type MediumDef } from './media/media';
 import type { ShapeId } from './media/shapes';
 import type { MethodId } from './media/writing';
@@ -74,6 +75,8 @@ export function sanitizeSettings(data: unknown): Settings | null {
     textScale: clamp(input.textScale, 0.3, 1, base.textScale),
     pages: input.pages === 'fit' || input.pages === 'flow' ? input.pages : base.pages,
     roman: typeof input.roman === 'boolean' ? input.roman : base.roman,
+    // Handouts saved before scripts existed were all in Latin letters.
+    script: isScriptId(input.script) ? input.script : 'latin',
     objectScale: clamp(input.objectScale, 0.5, 1.5, base.objectScale),
     transparent: typeof input.transparent === 'boolean' ? input.transparent : base.transparent,
     damage: clamp(input.damage, 0, 1, base.damage),

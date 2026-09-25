@@ -43,10 +43,20 @@ export interface Run {
   shade?: { angle: number; amount: number };
 }
 
+/** A ruled line, from (x0, y0) to (x1, y1) in mm. */
+export interface Rule {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
 export interface Drawing {
   /** Font size in mm. */
   size: number;
   runs: Run[];
+  /** Lines ruled between the lines of text, made the same way as the letters. */
+  rules?: Rule[];
 }
 
 const DEGREES = Math.PI / 180;

@@ -69,5 +69,15 @@ export function rasterizeText(
     ctx.fillText(run.text, 0, 0);
   }
   ctx.setTransform(1, 0, 0, 1, 0, 0);
+  // Ruled lines, thinner than the letters.
+  ctx.strokeStyle = '#f00';
+  ctx.lineWidth = Math.max(1, 0.05 * sizePx);
+  ctx.lineCap = 'round';
+  for (const rule of drawing.rules ?? []) {
+    ctx.beginPath();
+    ctx.moveTo(...toPx(rule.x0, rule.y0));
+    ctx.lineTo(...toPx(rule.x1, rule.y1));
+    ctx.stroke();
+  }
   ctx.globalCompositeOperation = 'source-over';
 }

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { MEDIA, type MediumId } from './media/media';
 import { textBox } from './media/shapes';
 import { buildScene, buildScenes } from './scene';
-import { changeMedium, changeMethod, defaultSettings, type Seeds } from './settings';
+import { changeMedium, changeMethod, changeScript, defaultSettings, type Seeds } from './settings';
 import type { Measure } from './text/layout';
 
 const mono: Measure = { width: (text) => [...text].length * 0.5, ascent: 0.7, descent: 0.3 };
@@ -135,6 +135,45 @@ describe('changeMedium', () => {
     expect(wood.method).toBe('gilt');
     expect(wood.damageMix).toEqual(MEDIA.wood.damage);
     expect(wood.light).toBeNull();
+  });
+});
+
+describe('scripts', () => {
+  it('writes a clay tablet in ruled cuneiform, from the English typed', () => {
+    const tablet = defaultSettings('clay', seeds);
+    expect([tablet.script, tablet.font]).toEqual(['cuneiform', 'noto-sans-cuneiform']);
+    const drawn = scene('clay', { damage: 0 });
+    expect(drawn.drawing.runs.every((run) => /^[\u{12000}-\u{1254F}]+$/u.test(run.text))).toBe(true);
+    const rules = drawn.drawing.rules!;
+    expect(rules.length).toBeGreaterThan(2);
+    const ys = drawn.drawing.runs.map((run) => run.y);
+    for (const rule of rules) {
+      // Across the text area, between lines of signs.
+      expect(rule.x0).toBeCloseTo(drawn.textBox.x, 6);
+      expect(rule.x1).toBeCloseTo(drawn.textBox.x + drawn.textBox.width, 6);
+      expect(ys.some((y) => y < rule.y0) && ys.some((y) => y > rule.y0)).toBe(true);
+    }
+    expect(scene('marble').drawing.rules).toBeUndefined();
+  });
+
+  it('brings a script\u2019s typeface along, and restores the usual one for Latin', () => {
+    const granite = defaultSettings('granite', seeds);
+    const runic = changeScript(granite, 'elder-futhark');
+    expect(runic.font).toBe('noto-sans-runic');
+    expect(changeScript(runic, 'latin').font).toBe(granite.font);
+    expect(changeScript(defaultSettings('clay', seeds), 'latin').font).toBe('marcellus');
+  });
+
+  it('keeps a chosen script across media, but not a medium\u2019s own', () => {
+    const runic = changeScript(defaultSettings('granite', seeds), 'futhorc');
+    expect(changeMedium(runic, 'sandstone')).toMatchObject({ script: 'futhorc', font: 'noto-sans-runic' });
+    expect(changeMedium(defaultSettings('clay', seeds), 'marble')).toMatchObject({ script: 'latin', font: 'cinzel' });
+    expect(changeMedium(defaultSettings('marble', seeds), 'clay').script).toBe('cuneiform');
+  });
+
+  it('leaves Roman letter forms to Latin', () => {
+    const runes = scene('granite', { script: 'elder-futhark', roman: true, text: 'JUST', damage: 0 });
+    expect(runes.drawing.runs.map((run) => run.text).join('')).toBe('\u16c3\u16a2\u16ca\u16cf');
   });
 });
 

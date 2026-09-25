@@ -1,6 +1,7 @@
 import type { Obliteration } from '../damage/marks';
 import type { DamageMix } from '../damage/types';
 import type { FontId } from '../text/fonts';
+import type { ScriptId } from '../text/scripts';
 import type { Hand } from '../text/hand';
 import type { Align, VerticalAlign, Wrap } from '../text/layout';
 import type { ShapeId } from './shapes';
@@ -46,7 +47,10 @@ export interface MediumDef {
   /** Slab or board thickness, mm; breaks show a broken face this deep at most. */
   thickness: number;
   text: string;
+  /** The typeface for Latin letters. */
   font: FontId;
+  /** The script the text is shown in unless another is chosen; Latin if not given. */
+  script?: ScriptId;
   align: Align;
   verticalAlign: VerticalAlign;
   wrap: Wrap;
@@ -201,6 +205,7 @@ export const MEDIA = {
       'do what you promised me. What do you take me for, that you treat somebody like me ' +
       'with such contempt?',
     font: 'marcellus',
+    script: 'cuneiform',
     align: 'left',
     verticalAlign: 'top',
     wrap: 'word',

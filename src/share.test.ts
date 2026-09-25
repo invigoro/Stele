@@ -73,6 +73,12 @@ describe('sanitizeSettings', () => {
     expect(sanitizeSettings({ medium: 'paper' })!.damageMix).toEqual(MEDIA.paper.damage);
   });
 
+  it('reads handouts saved before scripts existed as Latin', () => {
+    expect(sanitizeSettings({ medium: 'clay', font: 'marcellus' })!.script).toBe('latin');
+    expect(sanitizeSettings({ medium: 'granite', script: 'futhorc' })!.script).toBe('futhorc');
+    expect(sanitizeSettings({ medium: 'granite', script: 'klingon' })!.script).toBe('latin');
+  });
+
   it('needs at least a known medium', () => {
     expect(sanitizeSettings(null)).toBeNull();
     expect(sanitizeSettings({ medium: 'cheese' })).toBeNull();

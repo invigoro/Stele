@@ -13,11 +13,15 @@ to share with players or print, where damage and fading make it harder for playe
   fragment, a torn sheet…) and writing methods (carved, gilded, painted, burned, inked, typed, cast
   in relief, engraved, pressed into clay).
 - **Type the text,** choose a style (Roman capitals, blackletter, copperplate, handwriting,
-  typewriter, runes…), and add wear:
+  typewriter…), and add wear:
   - **Damage** scales everything the medium can suffer; "Damage types" adjusts each one (chips,
     cracks, lichen, verdigris, burns, water, ink blots, tears, folds…).
   - **Fade** wears the writing itself away: carving grows shallow, ink thins and browns.
   - 🎲 rerolls where the damage or fading falls.
+- **Write in runes or cuneiform:** type in English and pick a script: runes (Elder Futhark,
+  Younger Futhark or Anglo-Saxon Futhorc), or cuneiform, spelled out in real Akkadian syllable
+  signs that a player with a sign list could read back. Clay tablets start out in cuneiform, on
+  ruled lines.
 - **Decide what players can read:** wrap words in `[[double brackets]]` to guarantee they're
   destroyed (typed pages get them blacked out), or in `{{double braces}}` to keep damage off
   them.
