@@ -1,9 +1,10 @@
-import { MAX_POINTS, MAX_STROKES, PAINT_KINDS, quantize, type PaintKind, type Stroke } from './damage/paint';
+import { MAX_POINTS, MAX_STROKES, PAINT_KINDS, quantizeFor, type Stroke, type StrokeKind } from './damage/paint';
 import { isMediumId, MEDIA, type MediumDef } from './media/media';
 import type { ShapeId } from './media/shapes';
 import type { MethodId } from './media/writing';
 import { defaultSettings, randomSeeds, type Seeds, type Settings } from './settings';
 import { isFontId } from './text/fonts';
+import { PICTURE_USES, type PictureSettings, type PictureUse } from './text/picture';
 import { isScriptId } from './text/scripts';
 
 /** Bumped when the stored shape of settings changes incompatibly. */
@@ -17,21 +18,39 @@ const clamp = (value: unknown, min: number, max: number, fallback: number) =>
   typeof value === 'number' && Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
 
 /** Valid strokes from untrusted data; anything malformed is dropped. */
+const STROKE_KINDS: readonly StrokeKind[] = [...PAINT_KINDS, 'pen'];
+
+/** A valid picture from untrusted data: a web link or a stored upload, or null. */
+function sanitizePicture(data: unknown): PictureSettings | null {
+  if (!data || typeof data !== 'object') return null;
+  const { src, use, threshold } = data as Record<string, unknown>;
+  if (typeof src !== 'string' || src.length > 2000) return null;
+  if (!/^https?:\/\/\S+$/i.test(src) && !/^upload:[a-z0-9]{1,40}$/i.test(src)) return null;
+  return {
+    src,
+    use: typeof use === 'string' && use in PICTURE_USES ? (use as PictureUse) : 'opaque',
+    threshold: clamp(threshold, 0.05, 0.95, 0.5),
+  };
+}
+
 function sanitizeStrokes(data: unknown): Stroke[] {
   if (!Array.isArray(data)) return [];
   const strokes: Stroke[] = [];
   for (const item of data.slice(0, MAX_STROKES)) {
     if (!item || typeof item !== 'object') continue;
     const { kind, radius, points, page } = item as Record<string, unknown>;
-    if (!PAINT_KINDS.includes(kind as PaintKind) || !Array.isArray(points)) continue;
+    if (!STROKE_KINDS.includes(kind as StrokeKind) || !Array.isArray(points)) continue;
+    const round = quantizeFor(kind as StrokeKind);
+    // Damage in fractions of the object, pen lines in shorter sides from its centre.
+    const [low, high] = kind === 'pen' ? [-4, 4] : [-1, 2];
     const valid = points
       .slice(0, MAX_POINTS)
       .filter((p): p is [number, number] => Array.isArray(p) && p.length === 2 && p.every((n) => typeof n === 'number' && Number.isFinite(n)))
-      .map(([u, v]): [number, number] => [quantize(Math.min(2, Math.max(-1, u))), quantize(Math.min(2, Math.max(-1, v)))]);
+      .map(([u, v]): [number, number] => [round(Math.min(high, Math.max(low, u))), round(Math.min(high, Math.max(low, v)))]);
     if (valid.length === 0) continue;
     strokes.push({
-      kind: kind as PaintKind,
-      radius: clamp(radius, 0.002, 0.5, 0.03),
+      kind: kind as StrokeKind,
+      radius: clamp(radius, 0.0003, 0.5, 0.03),
       points: valid,
       page: Math.round(clamp(page, 0, 99, 0)),
     });
@@ -89,6 +108,8 @@ export function sanitizeSettings(data: unknown): Settings | null {
     ),
     fade: clamp(input.fade, 0, 1, base.fade),
     strokes: sanitizeStrokes(input.strokes),
+    writing: input.writing === 'picture' ? 'picture' : 'text',
+    picture: sanitizePicture(input.picture),
     light:
       lightIn && typeof lightIn === 'object'
         ? {
@@ -117,7 +138,15 @@ function fromBase64Url(text: string): Uint8Array<ArrayBuffer> {
 
 /** Settings as a compact, URL-safe string. */
 export async function encodeSettings(settings: Settings): Promise<string> {
-  const json = new TextEncoder().encode(JSON.stringify({ v: VERSION, ...settings }));
+  // Leave out fields that say what their absence means anyway, to keep links short.
+  const { writing, picture, script, signature, ...rest } = settings;
+  const optional = {
+    ...(writing === 'text' ? {} : { writing }),
+    ...(picture === null ? {} : { picture }),
+    ...(script === 'latin' ? {} : { script }),
+    ...(signature === '' ? {} : { signature }),
+  };
+  const json = new TextEncoder().encode(JSON.stringify({ v: VERSION, ...rest, ...optional }));
   return toBase64Url(await pipe(json, new CompressionStream('deflate-raw')));
 }
 

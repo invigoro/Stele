@@ -80,6 +80,29 @@ describe('sanitizeSettings', () => {
     expect(sanitizeSettings({ medium: 'paper', signature: 'x'.repeat(500) })!.signature).toHaveLength(120);
   });
 
+  it('keeps a linked or uploaded picture, and drops anything else', () => {
+    const picture = (src: unknown) => sanitizeSettings({ medium: 'paper', writing: 'picture', picture: { src, use: 'dark', threshold: 7 } })!;
+    expect(picture('https://example.com/map.png').picture).toEqual({ src: 'https://example.com/map.png', use: 'dark', threshold: 0.95 });
+    expect(picture('upload:abc123').picture?.src).toBe('upload:abc123');
+    expect(picture('javascript:alert(1)').picture).toBeNull();
+    expect(picture('https://example.com/map.png').writing).toBe('picture');
+    expect(sanitizeSettings({ medium: 'paper' })!.writing).toBe('text');
+  });
+
+  it('keeps pen lines finely, and their narrow widths', () => {
+    const settings = sanitizeSettings({
+      medium: 'marble',
+      strokes: [
+        { kind: 'pen', radius: 0.0006, points: [[0.12345, 0.5]], page: 0 },
+        { kind: 'break', radius: 0.02, points: [[0.12345, 0.5]], page: 0 },
+      ],
+    })!;
+    expect(settings.strokes.map((stroke) => [stroke.kind, stroke.radius, stroke.points[0][0]])).toEqual([
+      ['pen', 0.0006, 0.1235],
+      ['break', 0.02, 0.123],
+    ]);
+  });
+
   it('reads handouts saved before scripts existed as Latin', () => {
     expect(sanitizeSettings({ medium: 'clay', font: 'marcellus' })!.script).toBe('latin');
     expect(sanitizeSettings({ medium: 'granite', script: 'futhorc' })!.script).toBe('futhorc');

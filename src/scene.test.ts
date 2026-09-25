@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MEDIA, type MediumId } from './media/media';
 import { textBox } from './media/shapes';
-import { buildScene, buildScenes } from './scene';
+import { buildScene, buildScenes, fitPicture } from './scene';
 import { changeMedium, changeMethod, changeScript, defaultSettings, type Seeds } from './settings';
 import type { Measure } from './text/layout';
 
@@ -210,6 +210,59 @@ describe('signatures', () => {
     const last = pages.at(-1)!;
     expect(last.drawing.runs.some((run) => run.font)).toBe(true);
     expect(last.features.blots).toHaveLength(1); // the marked signature is blotted out
+  });
+});
+
+describe('pictures and drawing', () => {
+  const picture = { src: 'https://example.com/map.png', use: 'opaque' as const, threshold: 0.5 };
+
+  it('writes a picture in place of the text, as large as fits, keeping its shape', () => {
+    const settings = { ...defaultSettings('marble', seeds), writing: 'picture' as const, picture, damage: 0 };
+    const [drawn] = buildScenes(settings, mono, { picture: { width: 400, height: 200 } });
+    expect(drawn.drawing.runs).toEqual([]);
+    const place = drawn.drawing.picture!;
+    expect(place.width / place.height).toBeCloseTo(2, 6);
+    expect(place.x).toBeGreaterThanOrEqual(drawn.textBox.x - 1e-9);
+    expect(place.x + place.width).toBeLessThanOrEqual(drawn.textBox.x + drawn.textBox.width + 1e-9);
+    // Treated as writing of half the largest text size, so it's carved like text.
+    expect(drawn.drawing.size).toBeCloseTo(0.5 * MEDIA.marble.maxTextSize, 6);
+    // Until the picture has loaded, there's nothing to write.
+    expect(buildScenes(settings, mono)[0].drawing.picture).toBeUndefined();
+  });
+
+  it('fits into the area and follows the alignment', () => {
+    const area = { x: 10, y: 20, width: 100, height: 50 };
+    expect(fitPicture({ width: 100, height: 100 }, area, 1, 'center', 'middle')).toEqual({ x: 35, y: 20, width: 50, height: 50 });
+    expect(fitPicture({ width: 100, height: 100 }, area, 0.5, 'left', 'top')).toEqual({ x: 10, y: 20, width: 25, height: 25 });
+    expect(fitPicture({ width: 400, height: 100 }, area, 1, 'right', 'middle')).toEqual({ x: 10, y: 32.5, width: 100, height: 25 });
+  });
+
+  it('signs below the picture', () => {
+    const settings = { ...defaultSettings('paper', seeds), writing: 'picture' as const, picture, signature: 'R. Hale', damage: 0 };
+    const [drawn] = buildScenes(settings, mono, { picture: { width: 100, height: 100 } });
+    const place = drawn.drawing.picture!;
+    const signed = drawn.drawing.runs.filter((run) => run.font);
+    expect(signed.length).toBeGreaterThan(0);
+    expect(Math.min(...signed.map((run) => run.y))).toBeGreaterThan(place.y + place.height);
+  });
+
+  it('writes lines drawn by hand on their own page, in mm, and keeps them out of the damage', () => {
+    // Pen lines are placed from the centre in units of the shorter side (160 mm on marble).
+    const line = { kind: 'pen' as const, radius: 0.005, points: [[-0.5, 0], [0.25, 0.25]] as [number, number][], page: 0 };
+    const chip = { kind: 'break' as const, radius: 0.05, points: [[0.5, 0.5]] as [number, number][], page: 0 };
+    const drawn = scene('marble', { text: '', strokes: [line, chip, { ...line, page: 1 }], damage: 0 });
+    expect(drawn.drawing.lines).toEqual([{ points: [[40, 80], [160, 120]], width: 1.6 }]);
+    expect(drawn.strokes).toEqual([chip]);
+    // With no text, the lines set the size they're cut at.
+    expect(drawn.drawing.size).toBeCloseTo(0.5 * MEDIA.marble.maxTextSize, 6);
+  });
+
+  it('keeps a drawing\u2019s shape on an object of another shape', () => {
+    const square = { kind: 'pen' as const, radius: 0.005, points: [[-0.2, -0.2], [0.2, -0.2], [0.2, 0.2]] as [number, number][], page: 0 };
+    for (const medium of ['marble', 'paper'] as const) {
+      const [a, b, c] = scene(medium, { text: '', strokes: [square], damage: 0 }).drawing.lines![0].points;
+      expect(Math.hypot(b[0] - a[0], b[1] - a[1])).toBeCloseTo(Math.hypot(c[0] - b[0], c[1] - b[1]), 6);
+    }
   });
 });
 

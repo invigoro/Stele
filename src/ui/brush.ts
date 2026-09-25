@@ -1,4 +1,4 @@
-import { extendStroke, MAX_STROKES, paintKinds, quantize, type PaintKind, type Stroke } from '../damage/paint';
+import { extendStroke, MAX_STROKES, paintKinds, quantizeFor, type PaintKind, type Stroke } from '../damage/paint';
 import { MEDIA } from '../media/media';
 import type { Placement } from '../render/display';
 import { imageSize } from '../render/renderer';
@@ -6,19 +6,28 @@ import type { Scene } from '../scene';
 import type { Settings } from '../settings';
 import type { Store } from './store';
 
-/** The damage brush: which kind it paints (null when off) and its diameter in mm. */
+/** What dragging on the preview does: paint a kind of damage, draw with the pen, or nothing. */
 export interface BrushState {
-  tool: PaintKind | null;
+  tool: PaintKind | 'pen' | null;
+  /** The damage brush's diameter, mm. */
   size: number;
+  /** The pen's line width, mm. */
+  penSize: number;
 }
+
+/** Which strokes an undo or clear acts on: lines drawn with the pen, or painted damage. */
+export type StrokeGroup = 'pen' | 'damage';
 
 /** Brush sizes, mm, that [ and ] step through: finer steps for small brushes, as in Photoshop. */
 export const BRUSH_SIZES: readonly number[] = [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 25, 30, 35, 40];
 
-/** The next brush size up or down from `size`, stopping at the ends. */
-export function stepBrushSize(size: number, direction: 1 | -1): number {
-  if (direction > 0) return BRUSH_SIZES.find((step) => step > size) ?? BRUSH_SIZES[BRUSH_SIZES.length - 1];
-  return BRUSH_SIZES.findLast((step) => step < size) ?? BRUSH_SIZES[0];
+/** Pen widths, mm, that [ and ] step through. */
+export const PEN_SIZES: readonly number[] = [0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6];
+
+/** The next size up or down from `size` in `sizes`, stopping at the ends. */
+export function stepBrushSize(size: number, direction: 1 | -1, sizes: readonly number[] = BRUSH_SIZES): number {
+  if (direction > 0) return sizes.find((step) => step > size) ?? sizes[sizes.length - 1];
+  return sizes.findLast((step) => step < size) ?? sizes[0];
 }
 
 /** Whether keys pressed in an element type into it, so shortcuts should leave them alone. */
@@ -45,6 +54,15 @@ export function canvasToObject(view: View, x: number, y: number): [number, numbe
   const mmX = (((x - placement.x) / placement.width) * image.width) / pxPerMm - scene.margin;
   const mmY = (((y - placement.y) / placement.height) * image.height) / pxPerMm - scene.margin;
   return [mmX / scene.width, mmY / scene.height];
+}
+
+/**
+ * Converts a position on the object (fractions of its width and height) to one for a
+ * pen line: from its centre, in units of its shorter side.
+ */
+export function objectToPen(scene: Pick<Scene, 'width' | 'height'>, [u, v]: [number, number]): [number, number] {
+  const short = Math.min(scene.width, scene.height);
+  return [((u - 0.5) * scene.width) / short, ((v - 0.5) * scene.height) / short];
 }
 
 /** Canvas pixels per mm of the object as shown. */
@@ -80,14 +98,14 @@ export function attachBrush(options: {
 
   const showCursor = () => {
     const current = view();
-    const { tool, size } = brush.get();
+    const { tool, size, penSize } = brush.get();
     if (!pointer || !tool || !current) {
       cursor.hidden = true;
       return;
     }
     const box = canvas.getBoundingClientRect();
     const cssPerCanvasPx = box.width / canvas.width;
-    const diameter = size * shownPxPerMm(current) * cssPerCanvasPx;
+    const diameter = (tool === 'pen' ? penSize : size) * shownPxPerMm(current) * cssPerCanvasPx;
     cursor.hidden = false;
     cursor.style.width = cursor.style.height = `${diameter}px`;
     cursor.style.left = `${pointer.clientX - box.left}px`;
@@ -103,14 +121,17 @@ export function attachBrush(options: {
 
   canvas.addEventListener('pointerdown', (event) => {
     const current = view();
-    const { tool, size } = brush.get();
+    const { tool, size, penSize } = brush.get();
     if (!tool || !current || event.button !== 0) return;
     event.preventDefault();
     canvas.setPointerCapture(event.pointerId);
     painting = event.pointerId;
-    const [u, v] = canvasToObject(current, ...canvasPoint(event));
+    const onObject = canvasToObject(current, ...canvasPoint(event));
+    const [u, v] = tool === 'pen' ? objectToPen(current.scene, onObject) : onObject;
     const short = Math.min(current.scene.width, current.scene.height);
-    const stroke: Stroke = { kind: tool, radius: size / 2 / short, points: [[quantize(u), quantize(v)]], page: page() };
+    const round = quantizeFor(tool);
+    const width = tool === 'pen' ? penSize : size;
+    const stroke: Stroke = { kind: tool, radius: width / 2 / short, points: [[round(u), round(v)]], page: page() };
     store.update((settings) => ({ ...settings, strokes: [...settings.strokes, stroke].slice(-MAX_STROKES) }));
   });
 
@@ -122,7 +143,12 @@ export function attachBrush(options: {
     const strokes = store.get().strokes;
     const last = strokes.at(-1);
     if (!last) return;
-    const next = extendStroke(last, canvasToObject(current, ...canvasPoint(event)), current.scene.width / current.scene.height);
+    const onObject = canvasToObject(current, ...canvasPoint(event));
+    // Pen lines are already in units of the shorter side, so spacing compares directly.
+    const next =
+      last.kind === 'pen'
+        ? extendStroke(last, objectToPen(current.scene, onObject), 1)
+        : extendStroke(last, onObject, current.scene.width / current.scene.height);
     if (next === last) return;
     store.update((settings) => ({ ...settings, strokes: [...settings.strokes.slice(0, -1), next] }));
   });
@@ -141,8 +167,10 @@ export function attachBrush(options: {
     if (typesText(event.target)) return;
     const key = event.key.toLowerCase();
     if (key === 'z' && (event.ctrlKey || event.metaKey) && !event.shiftKey) {
+      // Undo what the tool in hand makes, or with none, the last stroke of any kind.
       const settings = store.get();
-      const undone = undoStroke(settings, page());
+      const { tool } = brush.get();
+      const undone = undoStroke(settings, page(), tool === 'pen' ? 'pen' : tool ? 'damage' : undefined);
       if (undone === settings) return;
       event.preventDefault();
       store.set(undone);
@@ -153,22 +181,32 @@ export function attachBrush(options: {
     const direction = key === '[' ? -1 : key === ']' ? 1 : 0;
     if (!direction || !brush.get().tool || event.metaKey || (event.ctrlKey && !event.altKey)) return;
     event.preventDefault();
-    brush.update((b) => ({ ...b, size: stepBrushSize(b.size, direction) }));
+    brush.update((b) =>
+      b.tool === 'pen' ? { ...b, penSize: stepBrushSize(b.penSize, direction, PEN_SIZES) } : { ...b, size: stepBrushSize(b.size, direction) },
+    );
   });
 }
 
+/** Whether a stroke is one of a group (any stroke, with no group). */
+function inGroup(stroke: Stroke, group?: StrokeGroup): boolean {
+  return group === undefined || (stroke.kind === 'pen') === (group === 'pen');
+}
+
 /**
- * Removes the newest stroke on a page, skipping any the medium can't show (moss painted on
- * stone, say, after switching to paper), since undoing those would appear to do nothing.
+ * Removes the newest stroke on a page (of a group, if given), skipping painted damage
+ * the medium can't show (moss painted on stone, say, after switching to paper), since
+ * undoing that would appear to do nothing.
  */
-export function undoStroke(settings: Settings, page: number): Settings {
-  const shown = paintKinds(MEDIA[settings.medium]);
-  const index = settings.strokes.findLastIndex((stroke) => stroke.page === page && shown.includes(stroke.kind));
+export function undoStroke(settings: Settings, page: number, group?: StrokeGroup): Settings {
+  const shown: readonly string[] = [...paintKinds(MEDIA[settings.medium]), 'pen'];
+  const index = settings.strokes.findLastIndex(
+    (stroke) => stroke.page === page && inGroup(stroke, group) && shown.includes(stroke.kind),
+  );
   if (index < 0) return settings;
   return { ...settings, strokes: settings.strokes.filter((_, i) => i !== index) };
 }
 
-/** Removes every stroke on a page. */
-export function clearStrokes(settings: Settings, page: number): Settings {
-  return { ...settings, strokes: settings.strokes.filter((stroke) => stroke.page !== page) };
+/** Removes every stroke on a page (of a group, if given). */
+export function clearStrokes(settings: Settings, page: number, group?: StrokeGroup): Settings {
+  return { ...settings, strokes: settings.strokes.filter((stroke) => stroke.page !== page || !inGroup(stroke, group)) };
 }

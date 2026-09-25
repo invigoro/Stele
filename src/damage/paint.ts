@@ -29,25 +29,37 @@ export function paintKinds(medium: Pick<MediumDef, 'family' | 'damage'>): PaintK
   });
 }
 
+/** What a stroke makes: a kind of damage, or a line drawn with the pen, which is writing. */
+export type StrokeKind = PaintKind | 'pen';
+
 /**
- * One brush stroke. Positions are fractions of the object's width and height, and the
- * radius a fraction of its shorter side, so strokes follow the object when it's resized
- * or the medium changes.
+ * One brush or pen stroke. The radius is a fraction of the object's shorter side. Painted
+ * damage is placed in fractions of the object's width and height, so it stays on the
+ * same part of any object; a pen line is placed from the object's centre in units of its
+ * shorter side, so a drawing keeps its shape on an object of another shape. Either way,
+ * strokes follow the object when it's resized or the medium changes.
  */
 export interface Stroke {
-  kind: PaintKind;
+  kind: StrokeKind;
   radius: number;
   points: [number, number][];
   /** Which page of a multi-page handout the stroke is on. */
   page: number;
 }
 
-/** Limits that keep settings (and share links) a sensible size. */
-export const MAX_STROKES = 200;
-export const MAX_POINTS = 400;
+/** Limits that keep settings (and share links) a sensible size, drawings included. */
+export const MAX_STROKES = 2000;
+export const MAX_POINTS = 800;
 
 /** Rounds a coordinate so links stay short; a thousandth of the object is plenty. */
 export const quantize = (value: number) => Math.round(value * 1000) / 1000;
+/** Pen lines keep a ten-thousandth, so fine drawing stays smooth. */
+export const quantizeFine = (value: number) => Math.round(value * 10000) / 10000;
+
+/** The rounding for a kind of stroke. */
+export function quantizeFor(kind: StrokeKind): (value: number) => number {
+  return kind === 'pen' ? quantizeFine : quantize;
+}
 
 /**
  * Adds a point to a stroke unless it's too close to the last one (under a third of the
@@ -62,7 +74,8 @@ export function extendStroke(stroke: Stroke, point: [number, number], aspect: nu
     const dy = (point[1] - last[1]) * Math.max(1, 1 / aspect);
     if (Math.hypot(dx, dy) < stroke.radius / 3) return stroke;
   }
-  return { ...stroke, points: [...stroke.points, [quantize(point[0]), quantize(point[1])]] };
+  const round = quantizeFor(stroke.kind);
+  return { ...stroke, points: [...stroke.points, [round(point[0]), round(point[1])]] };
 }
 
 /** How far painted damage blurs at its edge, mm; the shaders roughen within this band. */
@@ -111,6 +124,7 @@ export function rasterizePaint(
     ctx.shadowBlur = SOFTNESS_MM * raster.pxPerMm;
     ctx.shadowOffsetX = away;
     for (const stroke of strokes) {
+      if (stroke.kind === 'pen') continue; // writing, drawn with the text
       const channel = CHANNELS[stroke.kind];
       if (channel.mask !== mask || stroke.points.length === 0) continue;
       ctx.shadowColor = channel.color;

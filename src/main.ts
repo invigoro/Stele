@@ -15,7 +15,8 @@ import { buildScenes, type Scene } from './scene';
 import { defaultSettings, type Settings } from './settings';
 import { loadSaved, save, settingsFromUrl, urlHashFor } from './share';
 import { FONTS, loadFont, measureFont } from './text/fonts';
-import { attachBrush, type BrushState, type View } from './ui/brush';
+import { hasTransparency, loadPicture, saveUpload, UPLOAD } from './text/picture';
+import { attachBrush, typesText, type BrushState, type View } from './ui/brush';
 import { renderPanel, type PanelActions } from './ui/panel';
 import { Store } from './ui/store';
 
@@ -43,7 +44,7 @@ async function start(): Promise<void> {
   const preview = new SceneRenderer(gpu, distanceField);
   const initial = (await settingsFromUrl(window.location.hash)) ?? loadSaved() ?? defaultSettings('marble');
   const store = new Store<Settings>(initial);
-  const brush = new Store<BrushState>({ tool: null, size: 10 });
+  const brush = new Store<BrushState>({ tool: null, size: 10, penSize: 1 });
   // The page on screen, for handouts that run to more than one.
   let currentPage = 0;
   let pageCount = 1;
@@ -55,8 +56,44 @@ async function start(): Promise<void> {
   const scenesFor = async (settings: Settings): Promise<Scene[]> => {
     const font = FONTS[settings.font];
     const signatureFont = settings.signature.trim() ? FONTS[settings.signatureFont] : null;
-    await Promise.all([loadFont(font), signatureFont && loadFont(signatureFont)]);
-    return buildScenes(settings, measureFont(font), signatureFont ? measureFont(signatureFont) : undefined);
+    const picture = settings.writing === 'picture' && settings.picture ? loadPicture(settings.picture.src) : null;
+    const [, , image] = await Promise.all([loadFont(font), signatureFont && loadFont(signatureFont), picture]);
+    return buildScenes(settings, measureFont(font), {
+      signatureMeasure: signatureFont ? measureFont(signatureFont) : undefined,
+      picture: image ? { width: image.width, height: image.height } : undefined,
+    });
+  };
+
+  /**
+   * Writes a picture instead of the text: a file (uploaded, pasted or dropped, and kept
+   * in this browser) or a link. Transparent pictures default to writing everything
+   * that isn't transparent; others, their dark parts.
+   */
+  const usePicture = async (source: Blob | string) => {
+    showStatus('Loading the picture…');
+    try {
+      let src: string;
+      if (typeof source === 'string' && /^data:image\//i.test(source)) {
+        src = await saveUpload(await (await fetch(source)).blob());
+      } else if (typeof source === 'string') {
+        if (!/^https?:\/\/\S+$/i.test(source)) throw new Error('A picture link needs to start with http:// or https://.');
+        src = source;
+      } else {
+        src = await saveUpload(source);
+      }
+      const image = await loadPicture(src);
+      store.update((settings) => ({
+        ...settings,
+        writing: 'picture',
+        picture: { src, use: hasTransparency(image.data) ? 'opaque' : 'dark', threshold: settings.picture?.threshold ?? 0.5 },
+      }));
+      renderPanel(controls, store, actions);
+      showMessage(null);
+    } catch (error) {
+      showMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      showStatus(null);
+    }
   };
 
   const showPager = () => {
@@ -230,9 +267,11 @@ async function start(): Promise<void> {
       busy(button, 'Copying…', async () => {
         history.replaceState(null, '', await urlHashFor(store.get()));
         await navigator.clipboard.writeText(window.location.href);
-        button.textContent = 'Link copied';
+        const { writing, picture } = store.get();
+        button.textContent = writing === 'picture' && picture?.src.startsWith(UPLOAD) ? 'Copied, without the uploaded picture' : 'Link copied';
         await new Promise((resolve) => setTimeout(resolve, 1200));
       }),
+    usePicture: (source) => void usePicture(source),
   };
 
   renderPanel(controls, store, actions);
@@ -246,6 +285,32 @@ async function start(): Promise<void> {
   };
   pagePrev.addEventListener('click', () => turnPage(-1));
   pageNext.addEventListener('click', () => turnPage(1));
+  // Pasting a picture anywhere writes it; so does pasting a link to one, outside a text field.
+  window.addEventListener('paste', (event) => {
+    const file = [...(event.clipboardData?.files ?? [])].find((f) => f.type.startsWith('image/'));
+    if (file) {
+      event.preventDefault();
+      void usePicture(file);
+      return;
+    }
+    if (typesText(event.target)) return;
+    const link = event.clipboardData?.getData('text/plain').trim() ?? '';
+    if (/^(https?:\/\/|data:image\/)\S+$/i.test(link)) {
+      event.preventDefault();
+      void usePicture(link);
+    }
+  });
+  // So does dropping one on the preview: a file, or a picture dragged from another page.
+  stage.addEventListener('dragover', (event) => {
+    if (event.dataTransfer?.types.some((type) => type === 'Files' || type === 'text/uri-list')) event.preventDefault();
+  });
+  stage.addEventListener('drop', (event) => {
+    const file = [...(event.dataTransfer?.files ?? [])].find((f) => f.type.startsWith('image/'));
+    const link = event.dataTransfer?.getData('text/uri-list').split('\n')[0]?.trim();
+    if (!file && !link) return;
+    event.preventDefault();
+    void usePicture(file ?? link!);
+  });
   store.subscribe(schedule);
   store.subscribe(remember);
   window.addEventListener('hashchange', async () => {

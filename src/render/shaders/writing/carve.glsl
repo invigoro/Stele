@@ -8,9 +8,10 @@
 //
 // Weathering lowers the face by `erosion` mm: anywhere the groove was shallower than
 // that disappears, so hairlines and serifs vanish first. `rounding` (mm, > 0)
-// softens the sharp edges.
+// softens the sharp edges. No cut goes deeper than a third of the text size, so the
+// broad shapes of a picture are cut out flat rather than through the slab.
 float carveDepth(float d, float slope, float erosion, float rounding, float flatDepth) {
-  float depth = max(d, 0.0) * slope;
+  float depth = min(max(d, 0.0) * slope, 0.33 * u_textSize);
   if (u_flatCut > 0.5) depth = min(depth * 3.0, flatDepth);
   return smax(0.0, depth - erosion, rounding);
 }

@@ -5,6 +5,7 @@ import { lightDirection, type MediumDef } from '../media/media';
 import { shapeParams, SHAPES } from '../media/shapes';
 import { WRITING_CODES } from '../media/writing';
 import type { Scene } from '../scene';
+import { hasWriting } from '../text/hand';
 import { rasterizeText } from '../text/rasterize';
 import type { DistanceField } from './distanceField';
 import type { Gpu } from './gl';
@@ -158,7 +159,7 @@ export class SceneRenderer {
       u_fadeSeed: scene.offsets.fade,
       u_damageSeed: scene.offsets.damage,
       u_fade: scene.fade,
-      u_textSize: scene.drawing.runs.length > 0 ? scene.drawing.size : 0,
+      u_textSize: hasWriting(scene.drawing) ? scene.drawing.size : 0,
       u_palette: scene.palette.flat(),
       u_grain: medium.grain ?? 0,
       u_writing: WRITING_CODES[method.kind],

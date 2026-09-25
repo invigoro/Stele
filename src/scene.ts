@@ -24,7 +24,7 @@ import { METHODS, type MethodDef, type Rgb } from './media/writing';
 import type { Settings } from './settings';
 import { FONTS, type FontDef } from './text/fonts';
 import { drawText, type Drawing, type Rule, type Run } from './text/hand';
-import { layoutText, lineWidth, type Box, type Measure, type TextLayout } from './text/layout';
+import { layoutText, lineWidth, type Align, type Box, type Measure, type TextLayout, type VerticalAlign } from './text/layout';
 import { normalizeText, parseMarkup } from './text/markup';
 import { paginate } from './text/pages';
 import { romanize } from './text/roman';
@@ -115,12 +115,18 @@ function pageSeed(seed: number, page: number): number {
 /** A signature's size, as a multiple of the text's: people sign larger than they write. */
 const SIGNATURE_SCALE = 1.35;
 
+/** Things the scenes need that load separately: the signature's font, and the picture's size (px). */
+export interface SceneResources {
+  signatureMeasure?: Measure;
+  picture?: { width: number; height: number };
+}
+
 /**
- * Lays out the text and places the damage for `settings`, measuring with `measure`
- * (and the signature with `signatureMeasure`): one scene per page. Each page gets its
- * own sheet, hand and damage.
+ * Lays out the text (or the picture) and places the damage for `settings`, measuring
+ * with `measure`: one scene per page. Each page gets its own sheet, hand and damage.
  */
-export function buildScenes(settings: Settings, measure: Measure, signatureMeasure = measure): Scene[] {
+export function buildScenes(settings: Settings, measure: Measure, resources: SceneResources = {}): Scene[] {
+  const { signatureMeasure = measure } = resources;
   const medium: MediumDef = MEDIA[settings.medium];
   const font: FontDef = FONTS[settings.font];
   const method: MethodDef = METHODS[settings.method];
@@ -133,7 +139,10 @@ export function buildScenes(settings: Settings, measure: Measure, signatureMeasu
 
   const inScript =
     settings.script === 'latin' ? (settings.roman ? romanize(settings.text) : settings.text) : transliterate(settings.text, settings.script);
-  const body = parseMarkup(normalizeText(inScript));
+  // A picture takes the text's place (the text is kept, for switching back).
+  const picturing = settings.writing === 'picture';
+  const pictureSize = picturing && settings.picture ? resources.picture : undefined;
+  const body = picturing ? { text: '', spans: [] } : parseMarkup(normalizeText(inScript));
   // The signature stays in Latin letters, in a hand of its own. Two blank lines are
   // left for it under the text, so fitting and paging make room.
   const signature = parseMarkup(normalizeText(settings.signature).replace(/\n/g, ' '));
@@ -155,6 +164,10 @@ export function buildScenes(settings: Settings, measure: Measure, signatureMeasu
   const amounts = damageAmounts(settings.damage, settings.damageMix);
   const amount = (id: DamageId) => (id in medium.damage ? (amounts[id] ?? 0) : 0);
   const { grain, thickness } = medium;
+  // Lines drawn by hand, and a picture, are treated as writing of half the largest text
+  // size: that sets how deep they're cut and how their ink wears.
+  const drawnSize = layoutOptions.maxSize * 0.5;
+  const short = Math.min(width, height);
 
   return pages.map((pageText, page) => {
     const seeds = {
@@ -172,10 +185,38 @@ export function buildScenes(settings: Settings, measure: Measure, signatureMeasu
     const pageSpans = spans
       .filter((span) => span.end > pageText.start && span.start < pageEnd)
       .map((span) => ({ ...span, start: span.start - pageText.start, end: span.end - pageText.start }));
+    const lines = settings.strokes.filter((stroke) => stroke.kind === 'pen' && stroke.page === page);
+    if (lines.length > 0) {
+      drawing.lines = lines.map((line) => ({
+        points: line.points.map(([u, v]): [number, number] => [width / 2 + u * short, height / 2 + v * short]),
+        width: 2 * line.radius * short,
+      }));
+    }
+    // The picture fills the text area as far as its shape allows, leaving room below
+    // for a signature.
+    let signatureTop: number | undefined;
+    if (pictureSize && settings.picture) {
+      const room = signature.text ? Math.min(0.4 * box.height, 2.6 * drawnSize) : 0;
+      const area = { ...box, height: box.height - room };
+      const place = fitPicture(pictureSize, area, settings.textScale, settings.align, medium.verticalAlign);
+      drawing.picture = { ...settings.picture, ...place };
+      signatureTop = place.y + place.height + 0.4 * drawnSize;
+    }
+    if (drawing.size === 0 && (drawing.lines || drawing.picture)) drawing.size = drawnSize;
     if (signature.text && page === pages.length - 1) {
       // Its runs and marks are numbered on from the end of the page's text.
       const from = pageText.text.length + 1;
-      const runs = signRuns(signature.text, settings, { medium, layout, measure, signatureMeasure, box, size, from, seed: seeds.hand });
+      const runs = signRuns(signature.text, settings, {
+        medium,
+        layout,
+        measure,
+        signatureMeasure,
+        box,
+        size: picturing ? drawnSize : size,
+        from,
+        seed: seeds.hand,
+        top: signatureTop,
+      });
       if (drawing.size === 0) drawing.size = size;
       for (const run of runs) run.scale *= runs.size / drawing.size;
       drawing.runs.push(...runs);
@@ -243,7 +284,7 @@ export function buildScenes(settings: Settings, measure: Measure, signatureMeasu
         verdigris: amount('verdigris'),
       },
       protect: marks.protect,
-      strokes: settings.strokes.filter((stroke) => stroke.page === page),
+      strokes: settings.strokes.filter((stroke) => stroke.page === page && stroke.kind !== 'pen'),
       page,
       pageCount: pages.length,
       fade: settings.fade,
@@ -276,6 +317,8 @@ function signRuns(
     size: number;
     from: number;
     seed: number;
+    /** Where the signature's top goes, if not under the last line of text. */
+    top?: number;
   },
 ): Run[] & { size: number } {
   const { medium, layout, measure, signatureMeasure, box, size, from, seed } = where;
@@ -288,7 +331,7 @@ function signRuns(
   const sigSize = Math.min(SIGNATURE_SCALE * matched, (0.96 * box.width) / Math.max(width1, 1e-6));
   const width = width1 * sigSize;
   const last = layout.lines.findLast((line) => line.text.trim());
-  const top = last ? last.baseline + (measure.descent + 0.5) * size : box.y;
+  const top = where.top ?? (last ? last.baseline + (measure.descent + 0.5) * size : box.y);
   const baseline = top + signatureMeasure.ascent * sigSize;
   const x = settings.align === 'center' ? box.x + (box.width - width) / 2 : box.x + box.width - width;
   const hand = { ...medium.hand, perGlyph: medium.hand.perGlyph && !font.connected };
@@ -300,6 +343,25 @@ function signRuns(
   );
   const runs = signed.runs.map((run) => ({ ...run, source: run.source + from, font: settings.signatureFont, handwritten: true }));
   return Object.assign(runs, { size: sigSize });
+}
+
+/**
+ * Where a picture goes: as large as fits the area, keeping its shape, times `scale`,
+ * and placed the way text would be.
+ */
+export function fitPicture(
+  picture: { width: number; height: number },
+  area: Box,
+  scale: number,
+  align: Align,
+  verticalAlign: VerticalAlign,
+): Box {
+  const fit = Math.min(area.width / picture.width, area.height / picture.height) * Math.min(1, Math.max(0.05, scale));
+  const width = picture.width * fit;
+  const height = picture.height * fit;
+  const x = align === 'left' ? area.x : align === 'right' ? area.x + area.width - width : area.x + (area.width - width) / 2;
+  const y = verticalAlign === 'top' ? area.y : area.y + (area.height - height) / 2;
+  return { x, y, width, height };
 }
 
 /** Ruled lines between each pair of lines of text, across the text area, not quite level. */

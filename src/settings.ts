@@ -6,6 +6,7 @@ import { METHODS, type MethodDef, type MethodId } from './media/writing';
 import type { FontId } from './text/fonts';
 import type { Align } from './text/layout';
 import type { PageMode } from './text/pages';
+import type { PictureSettings } from './text/picture';
 import { SCRIPTS, type ScriptId } from './text/scripts';
 import { randomSeed } from './util/rng';
 
@@ -28,6 +29,9 @@ export interface Settings {
   text: string;
   /** False until the text is edited, so switching medium can swap in its sample text. */
   textEdited: boolean;
+  /** Whether the writing is the text or a picture (which keeps the text for later). */
+  writing: 'text' | 'picture';
+  picture: PictureSettings | null;
   font: FontId;
   align: Align;
   /** Fraction (0.3–1) of the largest text size that fits. */
@@ -76,6 +80,8 @@ export function defaultSettings(medium: MediumId, seeds: Seeds = randomSeeds()):
     shape: def.shapes[0],
     text: def.text,
     textEdited: false,
+    writing: 'text',
+    picture: null,
     font: usualFont(medium, script),
     align: def.align,
     textScale: 1,
@@ -138,6 +144,8 @@ export function changeMedium(settings: Settings, medium: MediumId): Settings {
     font: usualFont(medium, script),
     text: settings.textEdited ? settings.text : next.text,
     textEdited: settings.textEdited,
+    writing: settings.writing,
+    picture: settings.picture,
     roman: settings.roman,
     signature: settings.signature,
     signatureFont: settings.signatureFont,

@@ -96,6 +96,8 @@ export function segmented<T extends string>(options: {
   options: Option<T>[];
   onChange: (value: T) => void;
   wrap?: boolean;
+  /** Receives a function that shows another value, for when it changes elsewhere. */
+  sync?: (show: (value: T) => void) => void;
 }): HTMLElement {
   const group = create('div', options.wrap ? 'segmented wrap' : 'segmented');
   group.setAttribute('role', 'group');
@@ -111,6 +113,9 @@ export function segmented<T extends string>(options: {
     return item;
   });
   group.append(...buttons);
+  options.sync?.((value) => {
+    buttons.forEach((item, i) => item.setAttribute('aria-pressed', String(options.options[i].value === value)));
+  });
   return field(options.label, null, group);
 }
 
@@ -136,7 +141,10 @@ export function textInput(options: {
   value: string;
   placeholder?: string;
   maxLength?: number;
-  onInput: (value: string) => void;
+  /** Called on every keystroke. */
+  onInput?: (value: string) => void;
+  /** Called once the value is committed (Enter, or leaving the field). */
+  onChange?: (value: string) => void;
 }): HTMLElement {
   const id = uniqueId('input');
   const element = create('input');
@@ -146,7 +154,8 @@ export function textInput(options: {
   element.spellcheck = false;
   if (options.placeholder) element.placeholder = options.placeholder;
   if (options.maxLength) element.maxLength = options.maxLength;
-  element.addEventListener('input', () => options.onInput(element.value));
+  element.addEventListener('input', () => options.onInput?.(element.value));
+  element.addEventListener('change', () => options.onChange?.(element.value));
   return field(options.label, id, element);
 }
 

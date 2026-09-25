@@ -1,5 +1,6 @@
 import { cssFont, FONTS, type FontDef } from './fonts';
-import type { Drawing, Run } from './hand';
+import { hasWriting, type Drawing, type Run } from './hand';
+import { pictureCoverage } from './picture';
 
 /** Where the canvas sits in object space: its top-left corner in mm, and its scale. */
 export interface Raster {
@@ -29,7 +30,7 @@ export function rasterizeText(
   if (!ctx) throw new Error('Canvas 2D is unavailable');
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, raster.width, raster.height);
-  if (drawing.runs.length === 0) return;
+  if (!hasWriting(drawing)) return;
 
   const sizePx = drawing.size * raster.pxPerMm;
   const toPx = (x: number, y: number): [number, number] => [
@@ -68,6 +69,24 @@ export function rasterizeText(
     }
     ctx.fillRect(x + left - padPx, y - top - padPx, width + 2 * padPx, top + bottom + 2 * padPx);
   }
+  // Lines drawn by hand and pictures are full-strength ink, and hand-made (blue) even on
+  // a typed page.
+  const handPad = 0.4 * sizePx;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = 'rgb(0, 255, 255)';
+  for (const line of drawing.lines ?? []) {
+    ctx.lineWidth = line.width * raster.pxPerMm + 2 * handPad;
+    tracePath(ctx, line.points.map(([x, y]) => toPx(x, y)));
+    ctx.stroke();
+  }
+  const picture = drawing.picture;
+  const [px, py] = picture ? toPx(picture.x, picture.y) : [0, 0];
+  const [pw, ph] = picture ? [picture.width * raster.pxPerMm, picture.height * raster.pxPerMm] : [0, 0];
+  if (picture) {
+    ctx.fillStyle = 'rgb(0, 255, 255)';
+    ctx.fillRect(px - handPad, py - handPad, pw + 2 * handPad, ph + 2 * handPad);
+  }
 
   // Letters in pure red, added on top so the green channel is left alone.
   ctx.globalCompositeOperation = 'lighter';
@@ -91,5 +110,34 @@ export function rasterizeText(
     ctx.lineTo(...toPx(rule.x1, rule.y1));
     ctx.stroke();
   }
+  ctx.lineJoin = 'round';
+  for (const line of drawing.lines ?? []) {
+    ctx.lineWidth = Math.max(1, line.width * raster.pxPerMm);
+    tracePath(ctx, line.points.map(([x, y]) => toPx(x, y)));
+    ctx.stroke();
+  }
+  const coverage = picture ? pictureCoverage(picture) : null;
+  if (coverage) {
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(coverage, px, py, pw, ph);
+  }
   ctx.globalCompositeOperation = 'source-over';
+}
+
+/**
+ * A smooth path through the points of a line drawn by hand: curves through each point
+ * to the midpoint of the next, as a pen would move.
+ */
+function tracePath(ctx: CanvasRenderingContext2D, points: [number, number][]): void {
+  ctx.beginPath();
+  const [first, ...rest] = points;
+  ctx.moveTo(...first);
+  if (rest.length === 0) {
+    ctx.lineTo(...first); // a dot still needs a (zero-length) segment for its round cap
+    return;
+  }
+  for (let i = 0; i < rest.length - 1; i++) {
+    ctx.quadraticCurveTo(rest[i][0], rest[i][1], (rest[i][0] + rest[i + 1][0]) / 2, (rest[i][1] + rest[i + 1][1]) / 2);
+  }
+  ctx.lineTo(...rest[rest.length - 1]);
 }

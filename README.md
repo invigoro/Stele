@@ -24,6 +24,14 @@ to share with players or print, where damage and fading make it harder for playe
   ruled lines.
 - **Sign it:** add a signature, written below the text in a hand of its own (a typed page is
   signed in pen).
+- **Write a picture instead:** under "Write with", choose a picture file, paste one (Ctrl+V), drop
+  one on the preview, or give a link to one. It's carved, inked, cast or pressed in just as
+  lettering is; anything transparent in it stays bare, or for a drawing on white, only its dark
+  parts are written. Uploaded pictures are kept in your browser, so a copied link carries only
+  pictures that are themselves links.
+- **Draw by hand:** pick the pen and drag on the preview to draw a map, a sketch or a mark, made the
+  same way as the lettering: etched into stone, inked onto paper, cast in bronze. `[` and `]`
+  change the pen width.
 - **Decide what players can read:** wrap words in `[[double brackets]]` to guarantee they're
   destroyed (typed pages get them blacked out), or in `{{double braces}}` to keep damage off
   them.

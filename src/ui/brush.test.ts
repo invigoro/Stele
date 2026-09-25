@@ -4,7 +4,7 @@ import { imageSize } from '../render/renderer';
 import { buildScene } from '../scene';
 import { defaultSettings } from '../settings';
 import type { Measure } from '../text/layout';
-import { BRUSH_SIZES, canvasToObject, clearStrokes, shownPxPerMm, stepBrushSize, undoStroke, type View } from './brush';
+import { BRUSH_SIZES, canvasToObject, clearStrokes, objectToPen, PEN_SIZES, shownPxPerMm, stepBrushSize, undoStroke, type View } from './brush';
 
 const mono: Measure = { width: (text) => [...text].length * 0.5, ascent: 0.7, descent: 0.3 };
 const seeds = { material: 1, hand: 2, damage: 3, fade: 4 };
@@ -24,6 +24,11 @@ describe('canvasToObject', () => {
     const [u1, v1] = canvasToObject(view, 100 + margin + scene.width, 50 + margin + scene.height);
     expect(u1).toBeCloseTo(1, 2);
     expect(v1).toBeCloseTo(1, 2);
+  });
+
+  it('places pen lines from the centre, in units of the shorter side', () => {
+    expect(objectToPen({ width: 240, height: 160 }, [0.5, 0.5])).toEqual([0, 0]);
+    expect(objectToPen({ width: 240, height: 160 }, [1, 1])).toEqual([0.75, 0.5]);
   });
 
   it('knows how many canvas pixels a millimetre covers', () => {
@@ -54,6 +59,29 @@ describe('undo and clear', () => {
     expect(undoStroke(withMoss, 0).strokes).toEqual([moss]);
     expect(undoStroke({ ...withMoss, medium: 'sandstone' }, 0).strokes).toEqual([stroke(0, 0.1)]);
     expect(undoStroke({ ...withMoss, strokes: [moss] }, 0).strokes).toEqual([moss]);
+  });
+});
+
+describe('pen lines and damage', () => {
+  const line = (x: number): Stroke => ({ kind: 'pen', radius: 0.003, points: [[x, 0]], page: 0 });
+  const chip = (x: number): Stroke => ({ kind: 'break', radius: 0.02, points: [[x, 0]], page: 0 });
+  const settings = { ...defaultSettings('marble', seeds), strokes: [line(0.1), chip(0.2), line(0.3), chip(0.4)] };
+  const xs = (s: typeof settings) => s.strokes.map((stroke) => stroke.points[0][0]);
+
+  it('undoes the newest of a group, or the newest of all', () => {
+    expect(xs(undoStroke(settings, 0, 'pen'))).toEqual([0.1, 0.2, 0.4]);
+    expect(xs(undoStroke(settings, 0, 'damage'))).toEqual([0.1, 0.2, 0.3]);
+    expect(xs(undoStroke(settings, 0))).toEqual([0.1, 0.2, 0.3]);
+  });
+
+  it('clears a group and keeps the other', () => {
+    expect(xs(clearStrokes(settings, 0, 'pen'))).toEqual([0.2, 0.4]);
+    expect(xs(clearStrokes(settings, 0, 'damage'))).toEqual([0.1, 0.3]);
+  });
+
+  it('steps the pen through its own, finer widths', () => {
+    expect(stepBrushSize(1, 1, PEN_SIZES)).toBe(1.2);
+    expect(stepBrushSize(0.2, -1, PEN_SIZES)).toBe(0.2);
   });
 });
 

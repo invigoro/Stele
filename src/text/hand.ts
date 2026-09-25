@@ -1,5 +1,7 @@
 import { mulberry32 } from '../util/rng';
 import type { FontId } from './fonts';
+import type { Box } from './layout';
+import type { PictureSettings } from './picture';
 import type { Measure, TextLayout } from './layout';
 
 /**
@@ -56,12 +58,30 @@ export interface Rule {
   y1: number;
 }
 
+/** A line drawn by hand, in mm. */
+export interface DrawnLine {
+  points: [number, number][];
+  width: number;
+}
+
 export interface Drawing {
-  /** Font size in mm. */
+  /**
+   * Font size in mm; for lines drawn by hand or a picture without text, the size they're
+   * treated as (how deep they're cut, how the ink wears).
+   */
   size: number;
   runs: Run[];
   /** Lines ruled between the lines of text, made the same way as the letters. */
   rules?: Rule[];
+  /** Lines drawn by hand, made the same way as the letters. */
+  lines?: DrawnLine[];
+  /** A picture written in place of text, and where it goes (mm). */
+  picture?: PictureSettings & Box;
+}
+
+/** Whether a drawing has anything to write: letters, lines drawn by hand, or a picture. */
+export function hasWriting(drawing: Drawing): boolean {
+  return drawing.runs.length > 0 || (drawing.lines?.length ?? 0) > 0 || drawing.picture !== undefined;
 }
 
 const DEGREES = Math.PI / 180;

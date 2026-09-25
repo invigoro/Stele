@@ -266,7 +266,9 @@ hand, and long text flowing onto more pages, with every page printed or zipped t
 download, moss as a brush on stone, `[` and `]` for the brush size, and ink blots as a damage type
 on paper, parchment and papyrus (and as a brush). Then a bronze plaque, a typewriter, a clay
 tablet, and scripts: English typed in can be shown in three runic alphabets or in cuneiform, as
-Akkadian syllable signs. And signatures in a hand of their own.
+Akkadian syllable signs. And signatures in a hand of their own, and pictures and pen drawing in
+place of (or as well as) text, made by the same writing code as the lettering: a picture or a
+pen line goes into the same text mask the letters are drawn into.
 
 **Backlog:**
 - media: wax tablets, leather, chalk on slate
