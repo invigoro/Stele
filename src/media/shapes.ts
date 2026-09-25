@@ -9,7 +9,7 @@ export interface ShapeDef {
 }
 
 export const SHAPES: Record<ShapeId, ShapeDef> = {
-  rectangle: { label: 'Rectangular slab', code: 0 },
+  rectangle: { label: 'Rectangular', code: 0 },
   stele: { label: 'Round-topped stele', code: 1 },
   tabula: { label: 'Tabula ansata (plaque with handles)', code: 2 },
   fragment: { label: 'Broken fragment', code: 3 },
