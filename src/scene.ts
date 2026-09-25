@@ -3,6 +3,7 @@ import { generateBreaks, generateChips, type Chip } from './damage/chips';
 import { generateCracks, type Crack } from './damage/cracks';
 import { generateHoles, type Hole } from './damage/holes';
 import { markedAreas, obliterate, protectAreas } from './damage/marks';
+import { generateDents, generateScratches } from './damage/metalDamage';
 import type { Stroke } from './damage/paint';
 import {
   generateBlots,
@@ -57,6 +58,7 @@ export interface FieldDamage {
   foxing: number;
   fraying: number;
   darkening: number;
+  verdigris: number;
 }
 
 /** Everything the renderer needs for one image (one page), in millimetres. */
@@ -169,6 +171,7 @@ export function buildScenes(settings: Settings, measure: Measure): Scene[] {
         ...generateChips(amount('chips'), width, height, seed('chips')),
         ...generateBreaks(amount('breaks'), width, height, thickness, seed('breaks')),
         ...generateChips(amount('gouges'), width, height, seed('gouges'), { grain }),
+        ...generateDents(amount('dents'), width, height, seed('dents')),
       ],
       stains: generateStains(amount('water'), width, height, seed('water')),
       holes: generateHoles(medium.holes ?? 'worm', amount('holes'), width, height, seed('holes')),
@@ -182,6 +185,7 @@ export function buildScenes(settings: Settings, measure: Measure): Scene[] {
     const randomCracks = [
       ...generateCracks(amount('cracks'), width, height, seed('cracks')),
       ...(grain !== undefined ? generateCracks(amount('splits'), width, height, seed('splits'), { grain }) : []),
+      ...generateScratches(amount('scratches'), width, height, seed('scratches')),
     ];
 
     // Keep random damage off protected words, then make sure marked ones are destroyed.
@@ -213,6 +217,7 @@ export function buildScenes(settings: Settings, measure: Measure): Scene[] {
         foxing: amount('foxing'),
         fraying: amount('fraying'),
         darkening: amount('darkening'),
+        verdigris: amount('verdigris'),
       },
       protect: marks.protect,
       strokes: settings.strokes.filter((stroke) => stroke.page === page),

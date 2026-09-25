@@ -14,6 +14,7 @@ export const PAINT_KINDS: readonly PaintKind[] = ['break', 'wear', 'stain', 'bur
 export const PAINT_LABELS: Record<Family, Partial<Record<PaintKind, string>>> = {
   stone: { break: 'Chip', wear: 'Wear away', stain: 'Stain', burn: 'Scorch', growth: 'Moss' },
   wood: { break: 'Gouge', wear: 'Wear away', stain: 'Rot', burn: 'Burn' },
+  metal: { break: 'Dent', wear: 'Wear smooth', stain: 'Verdigris', burn: 'Scorch' },
   sheet: { break: 'Hole', wear: 'Rub out', stain: 'Water', burn: 'Burn', blot: 'Ink blot' },
 };
 

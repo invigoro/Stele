@@ -22,9 +22,10 @@ export interface Light {
 
 /**
  * Media that share most of their shader code: stone (carving, chips, lichen…),
- * wood (grain, carving or paint or burning) and sheets (ink on paper, parchment…).
+ * wood (grain, carving or paint or burning), metal (cast or engraved plaques) and
+ * sheets (ink on paper, parchment…).
  */
-export type Family = 'stone' | 'wood' | 'sheet';
+export type Family = 'stone' | 'wood' | 'metal' | 'sheet';
 
 export interface Variant {
   label: string;
@@ -68,6 +69,8 @@ export interface MediumDef {
 }
 
 const CHISEL: Hand = { perGlyph: true, rotation: 0.5, baseline: 0.012, spacing: 0.012, scale: 0.012, lineSlope: 0.15, dipPen: false };
+/** Cast from a pattern set in type: all but perfectly regular. */
+const CAST: Hand = { perGlyph: true, rotation: 0.15, baseline: 0.004, spacing: 0.004, scale: 0.004, lineSlope: 0.05, dipPen: false };
 const PEN: Hand = { perGlyph: true, rotation: 1.2, baseline: 0.03, spacing: 0.04, scale: 0.03, lineSlope: 0.6, dipPen: true };
 const REED: Hand = { perGlyph: true, rotation: 1.6, baseline: 0.04, spacing: 0.05, scale: 0.05, lineSlope: 0.8, dipPen: true };
 const RAKING: Light = { azimuth: 225, elevation: 25, ambient: 0.3, diffuse: 0.8, specular: 0.25, shininess: 40 };
@@ -181,6 +184,33 @@ export const MEDIA = {
     shapes: ['stele', 'rectangle', 'fragment'],
     damage: { chips: 0.4, breaks: 0.5, cracks: 0.5, flaking: 0.7, lichen: 0.4 },
     obliterate: 'chip',
+  },
+  bronze: {
+    label: 'Bronze plaque',
+    family: 'metal',
+    shader: 'bronze',
+    width: 250,
+    height: 170,
+    padding: { x: 24, y: 22 },
+    thickness: 8,
+    text: 'IN MEMORY OF\nTHE CITY WATCH\nWHO HELD\nTHE NORTH GATE\nMCCIV',
+    font: 'cinzel',
+    align: 'center',
+    verticalAlign: 'middle',
+    wrap: 'word',
+    maxTextSize: 20,
+    hand: CAST,
+    light: { ...RAKING, elevation: 30, specular: 0.45, shininess: 50 },
+    variants: {
+      aged: { label: 'Aged bronze', palette: [[0.8, 0.58, 0.34], [0.23, 0.16, 0.1], [0.4, 0.62, 0.52], [0.09, 0.07, 0.05]] },
+      green: { label: 'Green with age', palette: [[0.76, 0.56, 0.34], [0.26, 0.42, 0.36], [0.52, 0.72, 0.62], [0.12, 0.15, 0.12]] },
+      polished: { label: 'Polished bronze', palette: [[0.86, 0.63, 0.38], [0.52, 0.35, 0.2], [0.42, 0.62, 0.52], [0.18, 0.12, 0.08]] },
+      brass: { label: 'Brass', palette: [[0.84, 0.72, 0.42], [0.42, 0.35, 0.2], [0.48, 0.63, 0.5], [0.16, 0.13, 0.08]] },
+    },
+    methods: ['cast', 'engraved', 'engraved-filled'],
+    shapes: ['rectangle', 'tabula'],
+    damage: { verdigris: 0.6, pitting: 0.3, scratches: 0.4, dents: 0.3 },
+    obliterate: 'crust',
   },
   wood: {
     label: 'Wood',

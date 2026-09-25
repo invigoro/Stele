@@ -12,7 +12,7 @@ export interface Marks {
 }
 
 /** How a medium obliterates a marked word. */
-export type Obliteration = 'chip' | 'gouge' | 'blot' | 'hole';
+export type Obliteration = 'chip' | 'gouge' | 'blot' | 'crust' | 'hole';
 
 /** The boxes covered by each marked span's runs, split where the span wraps onto another line. */
 export function markedAreas(drawing: Drawing, spans: readonly Span[], measure: Measure): Marks {
@@ -115,7 +115,8 @@ export function protectAreas(
 
 /**
  * Damage that guarantees each box's writing is gone: a deep spall on stone, a gouge
- * along the grain of wood, an ink blot on paper or parchment, a gap in papyrus.
+ * along the grain of wood, an ink blot on paper or parchment, a gap in papyrus, a
+ * thick crust of corrosion on metal (drawn from the same features as a blot).
  * `textSize` (mm) sets how deep carving goes, so a spall can go deeper.
  */
 export function obliterate(
@@ -144,7 +145,7 @@ export function obliterate(
         aspect: Math.max(1, Math.min(4, (0.95 * halfWidth) / halfHeight)),
         seed,
       });
-    } else if (how === 'blot') {
+    } else if (how === 'blot' || how === 'crust') {
       result.blots.push({ x, y, rx: halfWidth * 1.1 + 1.5, ry: halfHeight * 1.15 + 1.5, angle: 0, round: false, spatter: 0.5, seed });
     } else {
       // An ellipse through the corners of the box is 1.41 times its half-size.

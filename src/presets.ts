@@ -83,6 +83,16 @@ export const PRESETS: Preset[] = [
     },
   },
   {
+    label: 'Harbour memorial',
+    settings: {
+      medium: 'bronze',
+      text: 'IN MEMORY OF\nCAPTAIN [[ALDOUS VANE]]\nLOST WITH THE\nSILVER HERON\nMDCCLXXI',
+      damage: 0.55,
+      damageMix: { verdigris: 0.9, pitting: 0.4, scratches: 0.3, dents: 0.2 },
+      fade: 0.35,
+    },
+  },
+  {
     label: 'Cursed tomb door',
     settings: {
       medium: 'sandstone',

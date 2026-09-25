@@ -20,6 +20,7 @@ const int WRITING_CARVE = 0;
 const int WRITING_PAINT = 1;
 const int WRITING_BURN = 2;
 const int WRITING_INK = 3;
+const int WRITING_RELIEF = 4;
 
 // Rows of the features texture, two per kind (see damage/features.ts).
 const int MAX_FEATURES = 64;
@@ -88,6 +89,7 @@ uniform float u_rot;
 uniform float u_foxing;
 uniform float u_fraying;
 uniform float u_darkening;
+uniform float u_verdigris;
 
 vec2 textUv(vec2 p) {
   return (p - u_originMm) * u_pxPerMm / vec2(textureSize(u_textDistance, 0));

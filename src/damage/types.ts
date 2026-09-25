@@ -20,6 +20,9 @@ export const DAMAGE_TYPES = {
   foxing: 'Age spots',
   fraying: 'Frayed edges',
   darkening: 'Darkening',
+  verdigris: 'Verdigris',
+  scratches: 'Scratches',
+  dents: 'Dents',
 } as const;
 
 export type DamageId = keyof typeof DAMAGE_TYPES;

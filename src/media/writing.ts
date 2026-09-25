@@ -1,7 +1,7 @@
 export type Rgb = readonly [number, number, number];
 
 /** How the writing was made; each kind has its own shader code. */
-export type WritingKind = 'carve' | 'paint' | 'burn' | 'ink';
+export type WritingKind = 'carve' | 'paint' | 'burn' | 'ink' | 'relief';
 
 export interface MethodDef {
   label: string;
@@ -30,9 +30,12 @@ export const METHODS = {
   'iron-gall': { label: 'Iron-gall ink', kind: 'ink', color: [0.1, 0.09, 0.13], aged: [0.5, 0.36, 0.22] },
   'carbon-ink': { label: 'Carbon ink', kind: 'ink', color: [0.06, 0.06, 0.06], aged: [0.3, 0.29, 0.27] },
   'red-ink': { label: 'Red ink', kind: 'ink', color: [0.62, 0.14, 0.1], aged: [0.68, 0.38, 0.3] },
+  cast: { label: 'Cast in relief', kind: 'relief' },
+  engraved: { label: 'Engraved', kind: 'carve' },
+  'engraved-filled': { label: 'Engraved, filled black', kind: 'carve', fill: true, color: [0.05, 0.05, 0.05] },
 } satisfies Record<string, MethodDef>;
 
 export type MethodId = keyof typeof METHODS;
 
 /** Shader codes for each kind (WRITING_* in surface/common.glsl). */
-export const WRITING_CODES: Record<WritingKind, number> = { carve: 0, paint: 1, burn: 2, ink: 3 };
+export const WRITING_CODES: Record<WritingKind, number> = { carve: 0, paint: 1, burn: 2, ink: 3, relief: 4 };

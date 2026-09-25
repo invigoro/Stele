@@ -195,6 +195,7 @@ export class SceneRenderer {
       u_foxing: fields.foxing,
       u_fraying: fields.fraying,
       u_darkening: fields.darkening,
+      u_verdigris: fields.verdigris,
     });
 
     const { light } = scene;

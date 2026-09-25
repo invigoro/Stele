@@ -47,6 +47,16 @@ describe('buildScene', () => {
     expect(scene('marble').features.blots).toEqual([]);
   });
 
+  it('dents, scratches and greens a bronze plaque', () => {
+    const bronze = scene('bronze');
+    expect(bronze.features.chips.length).toBeGreaterThan(0); // dents
+    expect(bronze.features.chips.every((chip) => !chip.breaks)).toBe(true);
+    expect(bronze.cracks.length).toBeGreaterThan(0); // scratches
+    expect(bronze.fields.verdigris).toBeGreaterThan(0);
+    expect(bronze.fields.lichen).toBe(0);
+    expect(scene('marble').fields.verdigris).toBe(0);
+  });
+
   it('respects the damage mix and the overall amount', () => {
     expect(scene('marble', { damageMix: { lichen: 0.5 } }).features.chips).toEqual([]);
     expect(scene('marble', { damage: 0 }).fields.lichen).toBe(0);
@@ -130,6 +140,8 @@ describe('damage markup', () => {
     expect(scene('paper', { text, damage: 0 }).features.blots).toHaveLength(1);
     expect(scene('papyrus', { text, damage: 0 }).features.holes).toHaveLength(1);
     expect(scene('wood', { text, damage: 0 }).features.chips).toHaveLength(1);
+    // Bronze buries the word under a crust of corrosion, drawn from a blot.
+    expect(scene('bronze', { text, damage: 0 }).features.blots).toHaveLength(1);
   });
 
   it('keeps random damage off {{protected}} words', () => {
