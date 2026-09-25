@@ -352,6 +352,89 @@ button[hidden] {
   display: none;
 }
 
+/* The writing's blocks: a list to pick from in the panel, and a frame on the preview. */
+.block-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 8px;
+}
+
+.block-item {
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.block-item[aria-pressed='true'] {
+  color: var(--accent-text);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.button-row.add-blocks {
+  flex-wrap: wrap;
+}
+
+.button-row.add-blocks button {
+  flex: 1 1 auto;
+  padding: 6px 8px;
+  white-space: nowrap;
+}
+
+.block-editor {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+}
+
+.stage canvas {
+  touch-action: none;
+}
+
+.block-frame {
+  position: absolute;
+  z-index: 1;
+  box-sizing: border-box;
+  border: 1.5px dashed rgb(255 255 255 / 0.95);
+  outline: 1px solid rgb(0 0 0 / 0.5);
+  pointer-events: none;
+}
+
+.block-frame[hidden] {
+  display: none;
+}
+
+.block-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  background: #fff;
+  border: 1.5px solid var(--accent);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.3);
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.block-handle.rotate {
+  top: -28px;
+  left: 50%;
+  border-radius: 50%;
+  cursor: grab;
+}
+
+.block-stem {
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  width: 0;
+  height: 22px;
+  border-left: 1.5px solid rgb(255 255 255 / 0.95);
+}
+
 .segmented.wrap {
   flex-wrap: wrap;
   gap: 4px;
@@ -371,6 +454,12 @@ button[hidden] {
 .button-row button {
   flex: 1;
   width: auto;
+}
+
+/* Side by side, not stacked (see the spacing between stacked buttons above). */
+.button-row button + button,
+.button-row button.secondary + button.secondary {
+  margin-top: 0;
 }
 
 .pager {

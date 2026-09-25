@@ -5,20 +5,20 @@ import type { Span } from '../text/markup';
 import type { Crack } from './cracks';
 import { blotReach, type Cut } from './sheetDamage';
 
+/** A marked area, mm: a box, turned by `angle` radians about its centre if its block is. */
+export type MarkBox = Box & { angle?: number };
+
 /** Areas the game master marked in the text, mm: one box per line a span covers. */
 export interface Marks {
-  destroy: Box[];
-  protect: Box[];
+  destroy: MarkBox[];
+  protect: MarkBox[];
 }
 
 /** How a medium (or writing method) obliterates a marked word. */
 export type Obliteration = 'chip' | 'gouge' | 'blot' | 'crust' | 'redact' | 'hole';
 
-/**
- * The boxes covered by each marked span's runs, split where the span wraps onto another
- * line. Runs in a typeface of their own (a signature's) are measured with `ownMeasure`.
- */
-export function markedAreas(drawing: Drawing, spans: readonly Span[], measure: Measure, ownMeasure = measure): Marks {
+/** The boxes covered by each marked span's runs, split where the span wraps onto another line. */
+export function markedAreas(drawing: Drawing, spans: readonly Span[], measure: Measure): Marks {
   const marks: Marks = { destroy: [], protect: [] };
   const { size } = drawing;
   for (const span of spans) {
@@ -29,10 +29,9 @@ export function markedAreas(drawing: Drawing, spans: readonly Span[], measure: M
     };
     for (const run of drawing.runs) {
       if (run.source + run.length <= span.start || run.source >= span.end) continue;
-      const m = run.font ? ownMeasure : measure;
-      const x1 = run.x + m.width(run.text) * size * run.scale;
-      const y0 = run.y - m.ascent * size * run.scale;
-      const y1 = run.y + m.descent * size * run.scale;
+      const x1 = run.x + measure.width(run.text) * size * run.scale;
+      const y0 = run.y - measure.ascent * size * run.scale;
+      const y1 = run.y + measure.descent * size * run.scale;
       if (box && Math.abs(run.y - box.line) > 0.5 * size) flush();
       if (!box) {
         box = { x0: run.x, y0, x1, y1, line: run.y };
@@ -125,7 +124,7 @@ export function protectAreas(
  * `textSize` (mm) sets how deep carving goes, so a spall can go deeper.
  */
 export function obliterate(
-  boxes: readonly Box[],
+  boxes: readonly MarkBox[],
   how: Obliteration,
   textSize: number,
 ): Pick<Features, 'chips' | 'blots' | 'holes'> {
@@ -136,6 +135,7 @@ export function obliterate(
     const halfWidth = box.width / 2 + 0.15 * textSize;
     const halfHeight = box.height / 2 + 0.1 * textSize;
     const seed = 37 * i + 11;
+    const angle = box.angle ?? 0; // lined up with the words, if they're turned
     if (how === 'chip' || how === 'gouge') {
       // The narrowest part of a chip's outline is 0.65 of its radius, so size it to
       // still cover the box there.
@@ -146,19 +146,19 @@ export function obliterate(
         radius,
         depth: Math.min(12, 0.5 * textSize + 1),
         breaks: false,
-        angle: 0,
+        angle,
         aspect: Math.max(1, Math.min(4, (0.95 * halfWidth) / halfHeight)),
         seed,
       });
     } else if (how === 'blot' || how === 'crust') {
-      result.blots.push({ x, y, rx: halfWidth * 1.1 + 1.5, ry: halfHeight * 1.15 + 1.5, angle: 0, shape: 'word', spatter: 0.5, seed });
+      result.blots.push({ x, y, rx: halfWidth * 1.1 + 1.5, ry: halfHeight * 1.15 + 1.5, angle, shape: 'word', spatter: 0.5, seed });
     } else if (how === 'redact') {
       // A marker stroke along the line, running a little past each end, not quite level.
       const tilt = (((i * 0.618034) % 1) - 0.5) * 0.035;
-      result.blots.push({ x, y, rx: box.width / 2 + 0.3 * textSize, ry: box.height / 2 + 0.05 * textSize, angle: tilt, shape: 'bar', spatter: 0, seed });
+      result.blots.push({ x, y, rx: box.width / 2 + 0.3 * textSize, ry: box.height / 2 + 0.05 * textSize, angle: angle + tilt, shape: 'bar', spatter: 0, seed });
     } else {
       // An ellipse through the corners of the box is 1.41 times its half-size.
-      result.holes.push({ x, y, rx: halfWidth * 1.42 + 1.5, ry: halfHeight * 1.42 + 1.5, angle: 0, seed });
+      result.holes.push({ x, y, rx: halfWidth * 1.42 + 1.5, ry: halfHeight * 1.42 + 1.5, angle, seed });
     }
   });
   return result;

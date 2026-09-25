@@ -1,5 +1,5 @@
 import { cssFont, FONTS, type FontDef } from './fonts';
-import { hasWriting, type Drawing, type Run } from './hand';
+import { hasWriting, type Drawing, type PlacedPicture, type Run } from './hand';
 import { pictureCoverage } from './picture';
 
 /** Where the canvas sits in object space: its top-left corner in mm, and its scale. */
@@ -80,12 +80,17 @@ export function rasterizeText(
     tracePath(ctx, line.points.map(([x, y]) => toPx(x, y)));
     ctx.stroke();
   }
-  const picture = drawing.picture;
-  const [px, py] = picture ? toPx(picture.x, picture.y) : [0, 0];
-  const [pw, ph] = picture ? [picture.width * raster.pxPerMm, picture.height * raster.pxPerMm] : [0, 0];
-  if (picture) {
-    ctx.fillStyle = 'rgb(0, 255, 255)';
-    ctx.fillRect(px - handPad, py - handPad, pw + 2 * handPad, ph + 2 * handPad);
+  // Each picture drawn about its centre, turned.
+  const withPicture = (picture: PlacedPicture, draw: (w: number, h: number) => void) => {
+    const [cx, cy] = toPx(picture.x + picture.width / 2, picture.y + picture.height / 2);
+    const [c, s] = [Math.cos(picture.angle), Math.sin(picture.angle)];
+    ctx.setTransform(c, s, -s, c, cx, cy);
+    draw(picture.width * raster.pxPerMm, picture.height * raster.pxPerMm);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+  };
+  ctx.fillStyle = 'rgb(0, 255, 255)';
+  for (const picture of drawing.pictures ?? []) {
+    withPicture(picture, (w, h) => ctx.fillRect(-w / 2 - handPad, -h / 2 - handPad, w + 2 * handPad, h + 2 * handPad));
   }
 
   // Letters in pure red, added on top so the green channel is left alone.
@@ -116,10 +121,10 @@ export function rasterizeText(
     tracePath(ctx, line.points.map(([x, y]) => toPx(x, y)));
     ctx.stroke();
   }
-  const coverage = picture ? pictureCoverage(picture) : null;
-  if (coverage) {
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(coverage, px, py, pw, ph);
+  ctx.imageSmoothingQuality = 'high';
+  for (const picture of drawing.pictures ?? []) {
+    const coverage = pictureCoverage(picture);
+    if (coverage) withPicture(picture, (w, h) => ctx.drawImage(coverage, -w / 2, -h / 2, w, h));
   }
   ctx.globalCompositeOperation = 'source-over';
 }

@@ -22,13 +22,17 @@ to share with players or print, where damage and fading make it harder for playe
   Younger Futhark or Anglo-Saxon Futhorc), or cuneiform, spelled out in real Akkadian syllable
   signs that a player with a sign list could read back. Clay tablets start out in cuneiform, on
   ruled lines.
-- **Sign it:** add a signature, written below the text in a hand of its own (a typed page is
-  signed in pen).
-- **Write a picture instead:** under "Write with", choose a picture file, paste one (Ctrl+V), drop
-  one on the preview, or give a link to one. It's carved, inked, cast or pressed in just as
-  lettering is; anything transparent in it stays bare, or for a drawing on white, only its dark
-  parts are written. Uploaded pictures are kept in your browser, so a copied link carries only
-  pictures that are themselves links.
+- **Arrange the writing in blocks:** the writing is made of blocks of text, signatures and
+  pictures, each with its own text, script, style, size and page. Add them with **+ Text**,
+  **+ Signature** and **+ Picture**. Click one on the preview to pick it, then drag it to move it,
+  pull a corner to resize it and the round handle to turn it (Shift for 15° steps); arrow keys
+  nudge it and Delete removes it. The template arranges the main text, and signs a signature
+  below it, until you move them; "Put back in place" hands them back.
+- **Sign it:** a signature is written in a hand of its own (a typed page is signed in pen).
+- **Write pictures:** choose a picture file, paste one (Ctrl+V), drop one on the preview, or give a
+  link to one. It's carved, inked, cast or pressed in just as lettering is; anything transparent
+  in it stays bare, or for a drawing on white, only its dark parts are written. Uploaded pictures
+  are kept in your browser, so a copied link carries only pictures that are themselves links.
 - **Draw by hand:** pick the pen and drag on the preview to draw a map, a sketch or a mark, made the
   same way as the lettering: etched into stone, inked onto paper, cast in bronze. `[` and `]`
   change the pen width.

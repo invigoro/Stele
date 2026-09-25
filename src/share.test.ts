@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MEDIA } from './media/media';
-import { defaultSettings } from './settings';
+import { mainBlock, type Block, type TextBlock } from './blocks';
+import { defaultSettings, newTextBlock, withText, type Settings } from './settings';
 import { decodeSettings, encodeSettings, sanitizeSettings, settingsFromUrl, urlHashFor } from './share';
 
 const seeds = { material: 1, hand: 2, damage: 3, fade: 4 };
@@ -8,8 +9,7 @@ const seeds = { material: 1, hand: 2, damage: 3, fade: 4 };
 describe('share links', () => {
   it('round-trip settings through a URL-safe string', async () => {
     const settings = {
-      ...defaultSettings('marble', seeds),
-      text: 'HERE LIES [[BOB]] · “quoted” ünïcode',
+      ...withText(defaultSettings('marble', seeds), { text: 'HERE LIES [[BOB]] · “quoted” ünïcode' }),
       textEdited: true,
       variant: 'nero',
       method: 'gilt' as const,
@@ -38,6 +38,9 @@ describe('share links', () => {
   });
 });
 
+/** The main text block. */
+const main = (settings: Settings | null) => mainBlock(settings!.blocks) as TextBlock;
+
 describe('sanitizeSettings', () => {
   it('fills in and clamps bad values from the medium’s defaults', () => {
     const settings = sanitizeSettings({
@@ -58,8 +61,8 @@ describe('sanitizeSettings', () => {
     expect(settings!.variant).toBe(Object.keys(slate.variants)[0]);
     expect(settings!.method).toBe(slate.methods[0]);
     expect(settings!.shape).toBe(slate.shapes[0]);
-    expect(settings!.font).toBe(slate.font);
-    expect([settings!.damage, settings!.fade, settings!.textScale]).toEqual([1, 0, 1]);
+    expect(main(settings).font).toBe(slate.font);
+    expect([settings!.damage, settings!.fade, main(settings).size]).toEqual([1, 0, 1]);
     expect(settings!.damageMix).toMatchObject({ flaking: 1, lichen: 0.2 });
     expect(settings!.light).toEqual({ azimuth: 360, elevation: slate.light.elevation });
     expect(settings!.seeds.hand).toBe(9);
@@ -73,20 +76,51 @@ describe('sanitizeSettings', () => {
     expect(sanitizeSettings({ medium: 'paper' })!.damageMix).toEqual(MEDIA.paper.damage);
   });
 
-  it('keeps a signature to one short line, in a known typeface', () => {
+  it('reads an older signature as a signature block: one short line, in a known typeface', () => {
     const settings = sanitizeSettings({ medium: 'paper', signature: '  R.\n Hale  ', signatureFont: 'comic-sans' })!;
-    expect(settings.signature).toBe('R. Hale');
-    expect(settings.signatureFont).toBe(defaultSettings('paper').signatureFont);
-    expect(sanitizeSettings({ medium: 'paper', signature: 'x'.repeat(500) })!.signature).toHaveLength(120);
+    expect(settings.blocks.map((block) => block.role)).toEqual(['main', 'signature']);
+    expect(settings.blocks[1]).toMatchObject({ text: 'R. Hale', font: 'mrs-saint-delafield', byHand: true, frame: null });
+    const long = sanitizeSettings({ medium: 'paper', signature: 'x'.repeat(500) })!;
+    expect((long.blocks[1] as TextBlock).text).toHaveLength(120);
+    expect(sanitizeSettings({ medium: 'paper', signature: '' })!.blocks).toHaveLength(1);
   });
 
-  it('keeps a linked or uploaded picture, and drops anything else', () => {
+  it('reads an older picture as a picture block, keeping links and uploads and dropping anything else', () => {
     const picture = (src: unknown) => sanitizeSettings({ medium: 'paper', writing: 'picture', picture: { src, use: 'dark', threshold: 7 } })!;
-    expect(picture('https://example.com/map.png').picture).toEqual({ src: 'https://example.com/map.png', use: 'dark', threshold: 0.95 });
-    expect(picture('upload:abc123').picture?.src).toBe('upload:abc123');
-    expect(picture('javascript:alert(1)').picture).toBeNull();
-    expect(picture('https://example.com/map.png').writing).toBe('picture');
-    expect(sanitizeSettings({ medium: 'paper' })!.writing).toBe('text');
+    expect(picture('https://example.com/map.png').blocks).toEqual([
+      expect.objectContaining({ kind: 'picture', role: 'main', src: 'https://example.com/map.png', use: 'dark', threshold: 0.95 }),
+    ]);
+    expect(picture('upload:abc123').blocks[0]).toMatchObject({ kind: 'picture', src: 'upload:abc123' });
+    expect(picture('javascript:alert(1)').blocks[0].kind).toBe('text');
+    expect(sanitizeSettings({ medium: 'paper' })!.blocks.map((block) => block.kind)).toEqual(['text']);
+  });
+
+  it('checks blocks from a link', () => {
+    const settings = sanitizeSettings({
+      medium: 'marble',
+      blocks: [
+        { id: 'a', kind: 'text', text: 'ONE', flow: true, frame: { cx: 9, cy: 0.5, w: 0.2, h: 0.1, angle: 540 }, font: 'comic-sans' },
+        { id: 'a', kind: 'text', text: 'TWO', flow: true, size: 7, page: 500 }, // a repeated id, a second runner-on
+        { id: 'p', kind: 'picture', src: 'javascript:alert(1)' },
+        { id: 'q', kind: 'picture', src: 'https://example.com/x.png', use: 'sideways', size: 0 },
+        { kind: 'sculpture' },
+      ],
+    })!;
+    const [one, two, picture] = settings.blocks as [TextBlock, TextBlock, Block];
+    expect(settings.blocks).toHaveLength(3);
+    expect(one).toMatchObject({ id: 'a', flow: true, font: MEDIA.marble.font, frame: { cx: 1.5, cy: 0.5, w: 0.2, h: 0.1, angle: 180 } });
+    expect(two.id).not.toBe('a');
+    expect(two).toMatchObject({ flow: false, size: 1, page: 99, frame: null });
+    expect(picture).toMatchObject({ id: 'q', use: 'opaque', size: 0.05 });
+  });
+
+  it('round-trips blocks through a link, leaving out the defaults on the way', async () => {
+    const settings = { ...defaultSettings('marble', seeds) };
+    settings.blocks = [
+      ...settings.blocks,
+      newTextBlock('extra', 'marble', { text: 'CAPTION', frame: { cx: 0.5, cy: 0.8, w: 0.6, h: 0.1, angle: -12 }, page: 1 }),
+    ];
+    expect(await decodeSettings(await encodeSettings(settings))).toEqual(settings);
   });
 
   it('keeps pen lines finely, and their narrow widths', () => {
@@ -104,9 +138,9 @@ describe('sanitizeSettings', () => {
   });
 
   it('reads handouts saved before scripts existed as Latin', () => {
-    expect(sanitizeSettings({ medium: 'clay', font: 'marcellus' })!.script).toBe('latin');
-    expect(sanitizeSettings({ medium: 'granite', script: 'futhorc' })!.script).toBe('futhorc');
-    expect(sanitizeSettings({ medium: 'granite', script: 'klingon' })!.script).toBe('latin');
+    expect(main(sanitizeSettings({ medium: 'clay', font: 'marcellus' })).script).toBe('latin');
+    expect(main(sanitizeSettings({ medium: 'granite', script: 'futhorc' })).script).toBe('futhorc');
+    expect(main(sanitizeSettings({ medium: 'granite', script: 'klingon' })).script).toBe('latin');
   });
 
   it('needs at least a known medium', () => {

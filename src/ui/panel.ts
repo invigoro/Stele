@@ -4,28 +4,20 @@ import { MEDIA, type MediumDef, type MediumId } from '../media/media';
 import { SHAPES, type ShapeId } from '../media/shapes';
 import { METHODS, type MethodId } from '../media/writing';
 import { applyPreset, PRESETS } from '../presets';
-import { changeMedium, changeMethod, changeScript, type Seeds, type Settings } from '../settings';
-import { FONTS, type FontId } from '../text/fonts';
-import type { Align } from '../text/layout';
-import type { PageMode } from '../text/pages';
-import { PICTURE_USES, UPLOAD, type PictureUse } from '../text/picture';
-import { SCRIPTS, type ScriptId } from '../text/scripts';
+import { changeMedium, changeMethod, type Seeds, type Settings } from '../settings';
 import { randomSeed } from '../util/rng';
+import { blockFields, type BlockActions } from './blockPanel';
 import { BRUSH_SIZES, clearStrokes, PEN_SIZES, undoStroke, type BrushState } from './brush';
-import { button, buttonRow, checkbox, hint, section, segmented, select, slider, textArea, textInput } from './controls';
+import { button, buttonRow, checkbox, hint, section, segmented, select, slider } from './controls';
 import type { Store } from './store';
 
-export interface PanelActions {
+export interface PanelActions extends BlockActions {
   brush: Store<BrushState>;
-  /** The page being shown, for painting and undo. */
-  page: () => number;
   exportPng: (button: HTMLButtonElement) => void;
   exportAllPages: (button: HTMLButtonElement) => void;
   exportPdf: (button: HTMLButtonElement) => void;
   print: (button: HTMLButtonElement) => void;
   copyLink: (button: HTMLButtonElement) => void;
-  /** Writes a picture instead of the text: an uploaded or pasted file, or a link to one. */
-  usePicture: (source: Blob | string) => void;
 }
 
 const percent = (value: number) => `${Math.round(value * 100)}%`;
@@ -92,170 +84,14 @@ export function renderPanel(container: HTMLElement, store: Store<Settings>, acti
 
   const { brush } = actions;
   const madeBy = select<MethodId>({
-      label: 'Made by',
-      value: settings.method,
-      options: medium.methods.map((method) => ({ value: method, label: METHODS[method].label })),
-      onChange: (method) => {
-        const before = store.get();
-        store.set(changeMethod(before, method));
-        if (store.get().font !== before.font) rebuild(); // show the typeface it switched to
-      },
-    });
-  const sizeSlider = slider({
-      label: 'Size',
-      value: settings.textScale,
-      min: 0.3,
-      max: 1,
-      step: 0.01,
-      format: percent,
-      onInput: (textScale) => change({ textScale }),
-    });
-  const alignment = segmented<Align>({
-      label: 'Align',
-      value: settings.align,
-      options: [
-        { value: 'left', label: 'Left' },
-        { value: 'center', label: 'Centre' },
-        { value: 'right', label: 'Right' },
-      ],
-      onChange: (align) => change({ align }),
-    });
-  const signatureFields = [
-    textInput({
-      label: 'Signature',
-      value: settings.signature,
-      placeholder: 'None',
-      maxLength: 120,
-      onInput: (signature) => change({ signature }),
-    }),
-    select<FontId>({
-      label: 'Signed in',
-      value: settings.signatureFont,
-      options: Object.entries(FONTS).map(([value, font]) => ({ value: value as FontId, label: font.label })),
-      onChange: (signatureFont) => change({ signatureFont }),
-    }),
-    hint('Signed below the writing in a hand of its own. A typed page is signed in pen.'),
-  ];
-  const writeWith = segmented<Settings['writing']>({
-    label: 'Write with',
-    value: settings.writing,
-    options: [
-      { value: 'text', label: 'Text' },
-      { value: 'picture', label: 'A picture' },
-    ],
-    onChange: (writing) => {
-      change({ writing });
-      rebuild();
+    label: 'Made by',
+    value: settings.method,
+    options: medium.methods.map((method) => ({ value: method, label: METHODS[method].label })),
+    onChange: (method) => {
+      store.set(changeMethod(store.get(), method));
+      rebuild(); // show the typefaces it switched to, and "written by hand" where typing
     },
   });
-  const textFields = [
-    textArea({
-      label: 'Text',
-      value: settings.text,
-      rows: 6,
-      onInput: (text) => change({ text, textEdited: true }),
-    }),
-    hint('Wrap words in <code>[[…]]</code> to have them destroyed, or <code>{{…}}</code> to keep damage off them.'),
-    select<ScriptId>({
-      label: 'Script',
-      value: settings.script,
-      options: Object.entries(SCRIPTS).map(([value, script]) => ({ value: value as ScriptId, label: script.label })),
-      onChange: (script) => {
-        store.set(changeScript(store.get(), script));
-        rebuild(); // show the typeface it switched to
-      },
-    }),
-    ...(settings.script === 'latin'
-      ? []
-      : [hint('Type in English: it’s written out in the script as the handout is drawn.')]),
-    select<FontId>({
-      label: 'Style',
-      value: settings.font,
-      options: Object.entries(FONTS).map(([value, font]) => ({ value: value as FontId, label: font.label })),
-      onChange: (font) => change({ font }),
-    }),
-    madeBy,
-    sizeSlider,
-    alignment,
-    ...(settings.script === 'latin'
-      ? [
-          checkbox({
-            label: 'Roman letter forms (V for U, dots between words)',
-            checked: settings.roman,
-            onChange: (roman) => change({ roman }),
-          }),
-        ]
-      : []),
-    select<PageMode>({
-      label: 'Long text',
-      value: settings.pages,
-      options: [
-        { value: 'flow', label: 'Continue onto more pages' },
-        { value: 'fit', label: 'Shrink to fit one page' },
-      ],
-      onChange: (pages) => change({ pages }),
-    }),
-    hint('A line with just <code>---</code> starts a new page.'),
-  ];
-  const picture = settings.picture;
-  const upload = document.createElement('input');
-  upload.type = 'file';
-  upload.accept = 'image/*';
-  upload.hidden = true;
-  upload.addEventListener('change', () => {
-    const file = upload.files?.[0];
-    if (file) actions.usePicture(file);
-  });
-  const uploaded = picture?.src.startsWith(UPLOAD) ?? false;
-  const pictureFields = [
-    buttonRow(button(picture ? 'Choose another picture…' : 'Choose a picture…', () => upload.click(), { className: 'secondary' }), upload),
-    textInput({
-      label: 'Or a link to one',
-      value: picture && !uploaded ? picture.src : '',
-      placeholder: 'https://…',
-      onChange: (link) => {
-        if (link.trim()) actions.usePicture(link.trim());
-      },
-    }),
-    hint(
-      'Or paste a picture (<kbd>Ctrl</kbd>+<kbd>V</kbd>), or drop one on the preview. It’s carved, inked or cast ' +
-        'like lettering, and anything transparent in it stays bare.' +
-        (uploaded ? ' A link to this handout can’t carry an uploaded picture, only a linked one.' : ''),
-    ),
-    ...(picture
-      ? [
-          select<PictureUse>({
-            label: 'Write',
-            value: picture.use,
-            options: Object.entries(PICTURE_USES).map(([value, label]) => ({ value: value as PictureUse, label })),
-            onChange: (use) => {
-              const current = store.get().picture;
-              if (current) change({ picture: { ...current, use } });
-              rebuild();
-            },
-          }),
-          ...(picture.use === 'opaque'
-            ? []
-            : [
-                slider({
-                  label: picture.use === 'dark' ? 'Counts as dark from' : 'Counts as light from',
-                  value: picture.threshold,
-                  min: 0.1,
-                  max: 0.9,
-                  step: 0.01,
-                  format: percent,
-                  onInput: (threshold) => {
-                    const current = store.get().picture;
-                    if (current) change({ picture: { ...current, threshold } });
-                  },
-                }),
-              ]),
-        ]
-      : []),
-    madeBy,
-    sizeSlider,
-    alignment,
-  ];
   const drawSection = section(
     'Draw by hand',
     segmented<'off' | 'pen'>({
@@ -344,7 +180,7 @@ export function renderPanel(container: HTMLElement, store: Store<Settings>, acti
         onInput: (objectScale) => change({ objectScale }),
       }),
     ),
-    section('Writing', writeWith, ...(settings.writing === 'picture' ? pictureFields : textFields), ...signatureFields),
+    section('Writing', madeBy, ...blockFields(store, actions, subscriptions)),
     drawSection,
     section(
       'Wear',

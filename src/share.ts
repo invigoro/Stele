@@ -1,8 +1,10 @@
+import { MAX_BLOCKS, newBlockId, normalizeAngle, type Block, type BlockRole, type Frame } from './blocks';
 import { MAX_POINTS, MAX_STROKES, PAINT_KINDS, quantizeFor, type Stroke, type StrokeKind } from './damage/paint';
-import { isMediumId, MEDIA, type MediumDef } from './media/media';
+import { isMediumId, MEDIA, type MediumDef, type MediumId } from './media/media';
 import type { ShapeId } from './media/shapes';
 import type { MethodId } from './media/writing';
-import { defaultSettings, randomSeeds, type Seeds, type Settings } from './settings';
+import { defaultSettings, randomSeeds, templateText, withText, type Seeds, type Settings, type TextPatch } from './settings';
+import type { Align } from './text/layout';
 import { isFontId } from './text/fonts';
 import { PICTURE_USES, type PictureSettings, type PictureUse } from './text/picture';
 import { isScriptId } from './text/scripts';
@@ -58,6 +60,88 @@ function sanitizeStrokes(data: unknown): Stroke[] {
   return strokes;
 }
 
+const isAlign = (value: unknown): value is Align => value === 'left' || value === 'center' || value === 'right';
+
+/** A valid frame, or null for a block arranged with the template. */
+function sanitizeFrame(data: unknown): Frame | null {
+  if (!data || typeof data !== 'object') return null;
+  const { cx, cy, w, h, angle } = data as Record<string, unknown>;
+  if (![cx, cy, w, h].every((n) => typeof n === 'number' && Number.isFinite(n))) return null;
+  return {
+    cx: clamp(cx, -0.5, 1.5, 0.5),
+    cy: clamp(cy, -0.5, 1.5, 0.5),
+    w: clamp(w, 0.01, 4, 0.5),
+    h: clamp(h, 0.01, 4, 0.5),
+    angle: typeof angle === 'number' && Number.isFinite(angle) ? normalizeAngle(angle) : 0,
+  };
+}
+
+/** Valid blocks from untrusted data; anything malformed is dropped. */
+function sanitizeBlocks(data: unknown[], medium: MediumId): Block[] {
+  const template = templateText(medium);
+  const ids = new Set<string>();
+  const blocks: Block[] = [];
+  let flowing = false;
+  for (const item of data.slice(0, MAX_BLOCKS)) {
+    if (!item || typeof item !== 'object') continue;
+    const input = item as Record<string, unknown>;
+    let id = typeof input.id === 'string' && /^[a-z0-9_-]{1,24}$/i.test(input.id) ? input.id : newBlockId();
+    while (ids.has(id)) id = newBlockId();
+    const common = {
+      id,
+      frame: sanitizeFrame(input.frame),
+      page: Math.round(clamp(input.page, 0, 99, 0)),
+      ...(input.role === 'main' || input.role === 'signature' ? { role: input.role as BlockRole } : {}),
+      align: isAlign(input.align) ? input.align : template.align,
+    };
+    if (input.kind === 'picture') {
+      const picture = sanitizePicture(input);
+      if (!picture) continue;
+      blocks.push({ ...common, ...picture, kind: 'picture', size: clamp(input.size, 0.05, 1, 1) });
+    } else if (input.kind === 'text') {
+      // Only the first block that runs on to more pages does.
+      const flow: boolean = input.flow === true && !flowing;
+      flowing ||= flow;
+      blocks.push({
+        ...common,
+        kind: 'text',
+        text: typeof input.text === 'string' ? input.text.slice(0, MAX_TEXT) : '',
+        font: typeof input.font === 'string' && isFontId(input.font) ? input.font : template.font,
+        script: isScriptId(input.script) ? input.script : 'latin',
+        roman: input.roman === true,
+        size: clamp(input.size, 0.3, 1, 1),
+        flow,
+        byHand: input.byHand === true,
+      });
+    } else {
+      continue;
+    }
+    ids.add(id);
+  }
+  return blocks;
+}
+
+/** Writing saved before blocks existed (one text, a signature, a picture), checked. */
+function legacyText(input: Record<string, unknown>): TextPatch {
+  const patch: TextPatch = {};
+  if (typeof input.text === 'string') patch.text = input.text.slice(0, MAX_TEXT);
+  if (typeof input.font === 'string' && isFontId(input.font)) patch.font = input.font;
+  if (isAlign(input.align)) patch.align = input.align;
+  if (typeof input.textScale === 'number') patch.textScale = clamp(input.textScale, 0.3, 1, 1);
+  if (input.pages === 'fit' || input.pages === 'flow') patch.pages = input.pages;
+  if (typeof input.roman === 'boolean') patch.roman = input.roman;
+  // Handouts saved before scripts existed were all in Latin letters.
+  patch.script = isScriptId(input.script) ? input.script : 'latin';
+  if (typeof input.signature === 'string') patch.signature = input.signature.replace(/\s+/g, ' ').trim().slice(0, MAX_SIGNATURE);
+  if (typeof input.signatureFont === 'string' && isFontId(input.signatureFont)) patch.signatureFont = input.signatureFont;
+  const picture = sanitizePicture(input.picture);
+  if (input.writing === 'picture' && picture) {
+    patch.writing = 'picture';
+    patch.picture = picture;
+  }
+  return patch;
+}
+
 /**
  * Turns anything (a decoded link, stored settings from an older version) into valid
  * settings: unknown or out-of-range values fall back to the medium's defaults. Returns
@@ -84,22 +168,13 @@ export function sanitizeSettings(data: unknown): Settings | null {
   const mixIn = input.damageMix && typeof input.damageMix === 'object' ? (input.damageMix as Record<string, unknown>) : null;
   const lightIn = input.light as Record<string, unknown> | null | undefined;
 
-  return {
+  const settings: Settings = {
     ...base,
     variant: typeof input.variant === 'string' && input.variant in medium.variants ? input.variant : base.variant,
     method: medium.methods.includes(input.method as MethodId) ? (input.method as MethodId) : base.method,
     shape: medium.shapes.includes(input.shape as ShapeId) ? (input.shape as ShapeId) : base.shape,
-    text: typeof input.text === 'string' ? input.text.slice(0, MAX_TEXT) : base.text,
+    blocks: Array.isArray(input.blocks) ? sanitizeBlocks(input.blocks, input.medium) : base.blocks,
     textEdited: typeof input.textEdited === 'boolean' ? input.textEdited : typeof input.text === 'string',
-    font: typeof input.font === 'string' && isFontId(input.font) ? input.font : base.font,
-    align: input.align === 'left' || input.align === 'center' || input.align === 'right' ? input.align : base.align,
-    textScale: clamp(input.textScale, 0.3, 1, base.textScale),
-    pages: input.pages === 'fit' || input.pages === 'flow' ? input.pages : base.pages,
-    roman: typeof input.roman === 'boolean' ? input.roman : base.roman,
-    // Handouts saved before scripts existed were all in Latin letters.
-    script: isScriptId(input.script) ? input.script : 'latin',
-    signature: typeof input.signature === 'string' ? input.signature.replace(/\s+/g, ' ').trim().slice(0, MAX_SIGNATURE) : base.signature,
-    signatureFont: typeof input.signatureFont === 'string' && isFontId(input.signatureFont) ? input.signatureFont : base.signatureFont,
     objectScale: clamp(input.objectScale, 0.5, 1.5, base.objectScale),
     transparent: typeof input.transparent === 'boolean' ? input.transparent : base.transparent,
     damage: clamp(input.damage, 0, 1, base.damage),
@@ -108,8 +183,6 @@ export function sanitizeSettings(data: unknown): Settings | null {
     ),
     fade: clamp(input.fade, 0, 1, base.fade),
     strokes: sanitizeStrokes(input.strokes),
-    writing: input.writing === 'picture' ? 'picture' : 'text',
-    picture: sanitizePicture(input.picture),
     light:
       lightIn && typeof lightIn === 'object'
         ? {
@@ -118,6 +191,7 @@ export function sanitizeSettings(data: unknown): Settings | null {
           }
         : null,
   };
+  return Array.isArray(input.blocks) ? settings : withText(settings, legacyText(input));
 }
 
 async function pipe(bytes: Uint8Array<ArrayBuffer>, transform: CompressionStream | DecompressionStream) {
@@ -136,17 +210,17 @@ function fromBase64Url(text: string): Uint8Array<ArrayBuffer> {
   return Uint8Array.from(binary, (char) => char.charCodeAt(0));
 }
 
+/** A block without the fields that say what their absence means anyway, to keep links short. */
+function compactBlock(block: Block): Partial<Block> {
+  const compact: Record<string, unknown> = { ...block };
+  const defaults: Record<string, unknown> = { frame: null, page: 0, script: 'latin', roman: false, byHand: false, size: 1 };
+  for (const [key, value] of Object.entries(defaults)) if (compact[key] === value) delete compact[key];
+  return compact as Partial<Block>;
+}
+
 /** Settings as a compact, URL-safe string. */
 export async function encodeSettings(settings: Settings): Promise<string> {
-  // Leave out fields that say what their absence means anyway, to keep links short.
-  const { writing, picture, script, signature, ...rest } = settings;
-  const optional = {
-    ...(writing === 'text' ? {} : { writing }),
-    ...(picture === null ? {} : { picture }),
-    ...(script === 'latin' ? {} : { script }),
-    ...(signature === '' ? {} : { signature }),
-  };
-  const json = new TextEncoder().encode(JSON.stringify({ v: VERSION, ...rest, ...optional }));
+  const json = new TextEncoder().encode(JSON.stringify({ v: VERSION, ...settings, blocks: settings.blocks.map(compactBlock) }));
   return toBase64Url(await pipe(json, new CompressionStream('deflate-raw')));
 }
 

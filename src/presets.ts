@@ -1,9 +1,9 @@
-import { defaultSettings, type Seeds, type Settings } from './settings';
+import { defaultSettings, splitTextPatch, withText, type Seeds, type Settings, type TextPatch } from './settings';
 
 export interface Preset {
   label: string;
-  /** Everything else comes from the medium's defaults. */
-  settings: Partial<Settings> & Pick<Settings, 'medium'>;
+  /** Everything else comes from the medium's defaults. The writing is given as one text and a signature. */
+  settings: Partial<Omit<Settings, 'blocks'>> & TextPatch & Pick<Settings, 'medium'>;
 }
 
 /** Ready-made handouts to start from. */
@@ -129,10 +129,12 @@ export const PRESETS: Preset[] = [
 /** A preset's settings, with the medium's defaults for everything it leaves out. */
 export function applyPreset(preset: Preset, seeds: Seeds): Settings {
   const base = defaultSettings(preset.settings.medium, seeds);
-  return {
+  const { rest, patch } = splitTextPatch(preset.settings);
+  const settings: Settings = {
     ...base,
-    ...preset.settings,
-    damageMix: { ...base.damageMix, ...preset.settings.damageMix },
-    textEdited: preset.settings.text !== undefined,
+    ...rest,
+    damageMix: { ...base.damageMix, ...rest.damageMix },
+    textEdited: patch.text !== undefined,
   };
+  return withText(settings, patch);
 }

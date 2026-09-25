@@ -75,13 +75,15 @@ export interface Drawing {
   rules?: Rule[];
   /** Lines drawn by hand, made the same way as the letters. */
   lines?: DrawnLine[];
-  /** A picture written in place of text, and where it goes (mm). */
-  picture?: PictureSettings & Box;
+  /** Pictures, and where they go (mm, turned by `angle` radians about their centre). */
+  pictures?: PlacedPicture[];
 }
 
-/** Whether a drawing has anything to write: letters, lines drawn by hand, or a picture. */
+export type PlacedPicture = PictureSettings & Box & { angle: number };
+
+/** Whether a drawing has anything to write: letters, lines drawn by hand, or pictures. */
 export function hasWriting(drawing: Drawing): boolean {
-  return drawing.runs.length > 0 || (drawing.lines?.length ?? 0) > 0 || drawing.picture !== undefined;
+  return drawing.runs.length > 0 || (drawing.lines?.length ?? 0) > 0 || (drawing.pictures?.length ?? 0) > 0;
 }
 
 const DEGREES = Math.PI / 180;

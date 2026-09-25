@@ -268,7 +268,9 @@ on paper, parchment and papyrus (and as a brush). Then a bronze plaque, a typewr
 tablet, and scripts: English typed in can be shown in three runic alphabets or in cuneiform, as
 Akkadian syllable signs. And signatures in a hand of their own, and pictures and pen drawing in
 place of (or as well as) text, made by the same writing code as the lettering: a picture or a
-pen line goes into the same text mask the letters are drawn into.
+pen line goes into the same text mask the letters are drawn into. Then the writing became a list
+of blocks (text, signatures, pictures), each placed, sized and turned by hand on the preview or
+arranged by the template, on a page of its own choosing.
 
 **Backlog:**
 - media: wax tablets, leather, chalk on slate
