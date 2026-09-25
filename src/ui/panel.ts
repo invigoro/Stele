@@ -11,7 +11,7 @@ import type { PageMode } from '../text/pages';
 import { SCRIPTS, type ScriptId } from '../text/scripts';
 import { randomSeed } from '../util/rng';
 import { BRUSH_SIZES, clearStrokes, undoStroke, type BrushState } from './brush';
-import { button, buttonRow, checkbox, hint, section, segmented, select, slider, textArea } from './controls';
+import { button, buttonRow, checkbox, hint, section, segmented, select, slider, textArea, textInput } from './controls';
 import type { Store } from './store';
 
 export interface PanelActions {
@@ -210,6 +210,20 @@ export function renderPanel(container: HTMLElement, store: Store<Settings>, acti
         onChange: (pages) => change({ pages }),
       }),
       hint('A line with just <code>---</code> starts a new page.'),
+      textInput({
+        label: 'Signature',
+        value: settings.signature,
+        placeholder: 'None',
+        maxLength: 120,
+        onInput: (signature) => change({ signature }),
+      }),
+      select<FontId>({
+        label: 'Signed in',
+        value: settings.signatureFont,
+        options: Object.entries(FONTS).map(([value, font]) => ({ value: value as FontId, label: font.label })),
+        onChange: (signatureFont) => change({ signatureFont }),
+      }),
+      hint('Signed below the text in a hand of its own. A typed page is signed in pen.'),
     ),
     section(
       'Wear',

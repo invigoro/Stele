@@ -130,6 +130,26 @@ export function textArea(options: {
   return field(options.label, id, element);
 }
 
+/** A one-line text field. */
+export function textInput(options: {
+  label: string;
+  value: string;
+  placeholder?: string;
+  maxLength?: number;
+  onInput: (value: string) => void;
+}): HTMLElement {
+  const id = uniqueId('input');
+  const element = create('input');
+  element.id = id;
+  element.type = 'text';
+  element.value = options.value;
+  element.spellcheck = false;
+  if (options.placeholder) element.placeholder = options.placeholder;
+  if (options.maxLength) element.maxLength = options.maxLength;
+  element.addEventListener('input', () => options.onInput(element.value));
+  return field(options.label, id, element);
+}
+
 export function checkbox(options: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
   const wrapper = create('label', 'checkbox');
   const input = create('input');

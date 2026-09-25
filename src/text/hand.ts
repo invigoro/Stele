@@ -1,4 +1,5 @@
 import { mulberry32 } from '../util/rng';
+import type { FontId } from './fonts';
 import type { Measure, TextLayout } from './layout';
 
 /**
@@ -41,6 +42,10 @@ export interface Run {
   length: number;
   /** Typewriter: the key struck unevenly, printing paler toward `angle` (radians) by `amount` (0–1). */
   shade?: { angle: number; amount: number };
+  /** Drawn in this typeface instead of the handout's (a signature's). */
+  font?: FontId;
+  /** Written by hand, even on a typed page. */
+  handwritten?: boolean;
 }
 
 /** A ruled line, from (x0, y0) to (x1, y1) in mm. */

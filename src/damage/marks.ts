@@ -14,8 +14,11 @@ export interface Marks {
 /** How a medium (or writing method) obliterates a marked word. */
 export type Obliteration = 'chip' | 'gouge' | 'blot' | 'crust' | 'redact' | 'hole';
 
-/** The boxes covered by each marked span's runs, split where the span wraps onto another line. */
-export function markedAreas(drawing: Drawing, spans: readonly Span[], measure: Measure): Marks {
+/**
+ * The boxes covered by each marked span's runs, split where the span wraps onto another
+ * line. Runs in a typeface of their own (a signature's) are measured with `ownMeasure`.
+ */
+export function markedAreas(drawing: Drawing, spans: readonly Span[], measure: Measure, ownMeasure = measure): Marks {
   const marks: Marks = { destroy: [], protect: [] };
   const { size } = drawing;
   for (const span of spans) {
@@ -26,9 +29,10 @@ export function markedAreas(drawing: Drawing, spans: readonly Span[], measure: M
     };
     for (const run of drawing.runs) {
       if (run.source + run.length <= span.start || run.source >= span.end) continue;
-      const x1 = run.x + measure.width(run.text) * size * run.scale;
-      const y0 = run.y - measure.ascent * size * run.scale;
-      const y1 = run.y + measure.descent * size * run.scale;
+      const m = run.font ? ownMeasure : measure;
+      const x1 = run.x + m.width(run.text) * size * run.scale;
+      const y0 = run.y - m.ascent * size * run.scale;
+      const y1 = run.y + m.descent * size * run.scale;
       if (box && Math.abs(run.y - box.line) > 0.5 * size) flush();
       if (!box) {
         box = { x0: run.x, y0, x1, y1, line: run.y };

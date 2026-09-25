@@ -38,6 +38,9 @@ export interface Settings {
   roman: boolean;
   /** The script the text is written in; the text itself stays in Latin letters. */
   script: ScriptId;
+  /** A line signed below the text in a hand of its own; empty for none. */
+  signature: string;
+  signatureFont: FontId;
   /** Size of the object relative to the medium's usual size (0.5–1.5). */
   objectScale: number;
   /** Download PNGs with a transparent background instead of white. */
@@ -80,6 +83,8 @@ export function defaultSettings(medium: MediumId, seeds: Seeds = randomSeeds()):
     pages: def.family === 'sheet' ? 'flow' : 'fit',
     roman: false,
     script,
+    signature: '',
+    signatureFont: 'mrs-saint-delafield',
     objectScale: 1,
     transparent: false,
     damage: 0.3,
@@ -134,6 +139,8 @@ export function changeMedium(settings: Settings, medium: MediumId): Settings {
     text: settings.textEdited ? settings.text : next.text,
     textEdited: settings.textEdited,
     roman: settings.roman,
+    signature: settings.signature,
+    signatureFont: settings.signatureFont,
     objectScale: settings.objectScale,
     transparent: settings.transparent,
     damage: settings.damage,

@@ -54,8 +54,9 @@ async function start(): Promise<void> {
   /** Every page of the handout. */
   const scenesFor = async (settings: Settings): Promise<Scene[]> => {
     const font = FONTS[settings.font];
-    await loadFont(font);
-    return buildScenes(settings, measureFont(font));
+    const signatureFont = settings.signature.trim() ? FONTS[settings.signatureFont] : null;
+    await Promise.all([loadFont(font), signatureFont && loadFont(signatureFont)]);
+    return buildScenes(settings, measureFont(font), signatureFont ? measureFont(signatureFont) : undefined);
   };
 
   const showPager = () => {

@@ -22,6 +22,8 @@ to share with players or print, where damage and fading make it harder for playe
   Younger Futhark or Anglo-Saxon Futhorc), or cuneiform, spelled out in real Akkadian syllable
   signs that a player with a sign list could read back. Clay tablets start out in cuneiform, on
   ruled lines.
+- **Sign it:** add a signature, written below the text in a hand of its own (a typed page is
+  signed in pen).
 - **Decide what players can read:** wrap words in `[[double brackets]]` to guarantee they're
   destroyed (typed pages get them blacked out), or in `{{double braces}}` to keep damage off
   them.

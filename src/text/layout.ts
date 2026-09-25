@@ -20,6 +20,8 @@ export interface Measure {
   ascent: number;
   /** Baseline to the bottom of descenders. */
   descent: number;
+  /** Height of lower-case letters, if known: how big a script looks varies a lot. */
+  xHeight?: number;
 }
 
 export interface LayoutOptions {

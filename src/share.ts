@@ -1,15 +1,17 @@
 import { MAX_POINTS, MAX_STROKES, PAINT_KINDS, quantize, type PaintKind, type Stroke } from './damage/paint';
-import { isScriptId } from './text/scripts';
 import { isMediumId, MEDIA, type MediumDef } from './media/media';
 import type { ShapeId } from './media/shapes';
 import type { MethodId } from './media/writing';
 import { defaultSettings, randomSeeds, type Seeds, type Settings } from './settings';
 import { isFontId } from './text/fonts';
+import { isScriptId } from './text/scripts';
 
 /** Bumped when the stored shape of settings changes incompatibly. */
 const VERSION = 1;
 /** Longest text kept from a link, so a pasted novel can't make a link unusable. */
 const MAX_TEXT = 4000;
+/** Longest signature kept. */
+const MAX_SIGNATURE = 120;
 
 const clamp = (value: unknown, min: number, max: number, fallback: number) =>
   typeof value === 'number' && Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
@@ -77,6 +79,8 @@ export function sanitizeSettings(data: unknown): Settings | null {
     roman: typeof input.roman === 'boolean' ? input.roman : base.roman,
     // Handouts saved before scripts existed were all in Latin letters.
     script: isScriptId(input.script) ? input.script : 'latin',
+    signature: typeof input.signature === 'string' ? input.signature.replace(/\s+/g, ' ').trim().slice(0, MAX_SIGNATURE) : base.signature,
+    signatureFont: typeof input.signatureFont === 'string' && isFontId(input.signatureFont) ? input.signatureFont : base.signatureFont,
     objectScale: clamp(input.objectScale, 0.5, 1.5, base.objectScale),
     transparent: typeof input.transparent === 'boolean' ? input.transparent : base.transparent,
     damage: clamp(input.damage, 0, 1, base.damage),

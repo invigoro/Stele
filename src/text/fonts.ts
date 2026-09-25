@@ -239,6 +239,7 @@ export function measureFont(font: FontDef): Measure {
     measure = {
       ascent: sample.actualBoundingBoxAscent / reference,
       descent: sample.actualBoundingBoxDescent / reference,
+      xHeight: ctx.measureText('x').actualBoundingBoxAscent / reference,
       width(text: string) {
         let width = widths.get(text);
         if (width === undefined) {

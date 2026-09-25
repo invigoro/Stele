@@ -1,5 +1,5 @@
-import { cssFont, type FontDef } from './fonts';
-import type { Drawing } from './hand';
+import { cssFont, FONTS, type FontDef } from './fonts';
+import type { Drawing, Run } from './hand';
 
 /** Where the canvas sits in object space: its top-left corner in mm, and its scale. */
 export interface Raster {
@@ -13,7 +13,8 @@ export interface Raster {
  * Draws text into `canvas` for the renderer. Red is letter coverage. Green is ink
  * density, filled in a box around each run, padded by `pad` times the font size, so
  * ink that spreads or runs outside the letters still knows how dark it is. (Type needs
- * less, and its boxes mustn't spill into the next letter's.)
+ * less, and its boxes mustn't spill into the next letter's.) Blue marks runs written by
+ * hand, such as a signature on a typed page.
  */
 export function rasterizeText(
   drawing: Drawing,
@@ -35,18 +36,28 @@ export function rasterizeText(
     (x - raster.originMm[0]) * raster.pxPerMm,
     (y - raster.originMm[1]) * raster.pxPerMm,
   ];
-  ctx.font = cssFont(font, sizePx);
+  const fontFor = (run: Run) => cssFont(run.font ? FONTS[run.font] : font, sizePx);
 
-  const padPx = pad * sizePx;
   for (const run of drawing.runs) {
     const [x, y] = toPx(run.x, run.y);
-    const width = ctx.measureText(run.text).width * run.scale;
+    ctx.font = fontFor(run);
+    // The box the letters cover (a line's height at least), padded; a hand-written run
+    // on a typed page gets a pen's padding.
+    const metrics = ctx.measureText(run.text);
+    const s = run.scale;
+    const padPx = (run.handwritten ? 0.4 : pad) * sizePx * s;
+    const left = -Math.max(0, metrics.actualBoundingBoxLeft) * s;
+    const right = Math.max(metrics.width, metrics.actualBoundingBoxRight) * s;
+    const top = Math.max(1.2 * sizePx, metrics.actualBoundingBoxAscent) * s;
+    const bottom = Math.max(0.4 * sizePx, metrics.actualBoundingBoxDescent) * s;
+    const width = right - left;
     const density = Math.min(1, Math.max(0, run.density));
-    const green = (fraction: number) => `rgb(0, ${Math.round(density * fraction * 255)}, 0)`;
+    const blue = run.handwritten ? 255 : 0;
+    const green = (fraction: number) => `rgb(0, ${Math.round(density * fraction * 255)}, ${blue})`;
     if (run.shade) {
       // A lopsided strike: paler toward one side of the letter.
       const reach = 0.5 * sizePx;
-      const [cx, cy] = [x + width / 2, y - 0.35 * sizePx];
+      const [cx, cy] = [x + left + width / 2, y - 0.35 * sizePx];
       const [dx, dy] = [Math.cos(run.shade.angle) * reach, Math.sin(run.shade.angle) * reach];
       const gradient = ctx.createLinearGradient(cx - dx, cy - dy, cx + dx, cy + dy);
       gradient.addColorStop(0, green(1));
@@ -55,7 +66,7 @@ export function rasterizeText(
     } else {
       ctx.fillStyle = green(1);
     }
-    ctx.fillRect(x - padPx, y - 1.2 * sizePx - padPx, width + 2 * padPx, 1.6 * sizePx + 2 * padPx);
+    ctx.fillRect(x + left - padPx, y - top - padPx, width + 2 * padPx, top + bottom + 2 * padPx);
   }
 
   // Letters in pure red, added on top so the green channel is left alone.
@@ -63,6 +74,7 @@ export function rasterizeText(
   ctx.fillStyle = '#f00';
   for (const run of drawing.runs) {
     const [x, y] = toPx(run.x, run.y);
+    ctx.font = fontFor(run);
     const cos = Math.cos(run.rotation) * run.scale;
     const sin = Math.sin(run.rotation) * run.scale;
     ctx.setTransform(cos, sin, -sin, cos, x, y);

@@ -73,6 +73,13 @@ describe('sanitizeSettings', () => {
     expect(sanitizeSettings({ medium: 'paper' })!.damageMix).toEqual(MEDIA.paper.damage);
   });
 
+  it('keeps a signature to one short line, in a known typeface', () => {
+    const settings = sanitizeSettings({ medium: 'paper', signature: '  R.\n Hale  ', signatureFont: 'comic-sans' })!;
+    expect(settings.signature).toBe('R. Hale');
+    expect(settings.signatureFont).toBe(defaultSettings('paper').signatureFont);
+    expect(sanitizeSettings({ medium: 'paper', signature: 'x'.repeat(500) })!.signature).toHaveLength(120);
+  });
+
   it('reads handouts saved before scripts existed as Latin', () => {
     expect(sanitizeSettings({ medium: 'clay', font: 'marcellus' })!.script).toBe('latin');
     expect(sanitizeSettings({ medium: 'granite', script: 'futhorc' })!.script).toBe('futhorc');

@@ -177,6 +177,42 @@ describe('scripts', () => {
   });
 });
 
+describe('signatures', () => {
+  const lastLine = (runs: { y: number; font?: string }[]) => Math.max(...runs.filter((run) => !run.font).map((run) => run.y));
+
+  it('signs below the text, at the right, larger, in its own typeface', () => {
+    const signed = scene('paper', { text: 'Yours faithfully,', signature: 'H. Aldous', damage: 0 });
+    const own = signed.drawing.runs.filter((run) => run.font === 'mrs-saint-delafield');
+    expect(own.map((run) => run.text).join('')).toBe('H.Aldous');
+    expect(own.every((run) => run.handwritten && run.scale > 1.2)).toBe(true);
+    expect(Math.min(...own.map((run) => run.y))).toBeGreaterThan(lastLine(signed.drawing.runs));
+    // Right-aligned: it ends at the text area's right edge. (A joined script is drawn a
+    // word at a time; the test's font is 0.5 wide per character.)
+    const end = Math.max(...own.map((run) => run.x + 0.5 * run.text.length * signed.drawing.size * run.scale));
+    expect(end).toBeCloseTo(signed.textBox.x + signed.textBox.width, 0);
+    expect(scene('paper', { signature: '' }).drawing.runs.some((run) => run.font)).toBe(false);
+  });
+
+  it('centres under centred text, and makes room when shrinking to fit', () => {
+    const plain = scene('marble', { damage: 0 });
+    const signed = scene('marble', { signature: 'Caius fecit', damage: 0 });
+    expect(signed.drawing.size).toBeLessThan(plain.drawing.size);
+    const own = signed.drawing.runs.filter((run) => run.font);
+    const middle = (Math.min(...own.map((run) => run.x)) + Math.max(...own.map((run) => run.x))) / 2;
+    expect(Math.abs(middle - (signed.textBox.x + signed.textBox.width / 2))).toBeLessThan(0.15 * signed.textBox.width);
+  });
+
+  it('signs only the last page, and can be destroyed or kept like the text', () => {
+    const long = { text: 'Line of writing. '.repeat(120), signature: '[[R. Hale]]', damage: 0 };
+    const pages = buildScenes({ ...defaultSettings('paper', seeds), ...long }, mono);
+    expect(pages.length).toBeGreaterThan(1);
+    expect(pages.slice(0, -1).every((page) => page.drawing.runs.every((run) => !run.font))).toBe(true);
+    const last = pages.at(-1)!;
+    expect(last.drawing.runs.some((run) => run.font)).toBe(true);
+    expect(last.features.blots).toHaveLength(1); // the marked signature is blotted out
+  });
+});
+
 describe('changeMethod', () => {
   it('brings a typewriter’s typeface along, and restores the medium’s when switching back', () => {
     const letter = defaultSettings('paper', seeds);

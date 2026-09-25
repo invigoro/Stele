@@ -23,8 +23,8 @@ import { textBox, type ShapeId } from './media/shapes';
 import { METHODS, type MethodDef, type Rgb } from './media/writing';
 import type { Settings } from './settings';
 import { FONTS, type FontDef } from './text/fonts';
-import { drawText, type Drawing, type Rule } from './text/hand';
-import { layoutText, type Box, type Measure, type TextLayout } from './text/layout';
+import { drawText, type Drawing, type Rule, type Run } from './text/hand';
+import { layoutText, lineWidth, type Box, type Measure, type TextLayout } from './text/layout';
 import { normalizeText, parseMarkup } from './text/markup';
 import { paginate } from './text/pages';
 import { romanize } from './text/roman';
@@ -112,11 +112,15 @@ function pageSeed(seed: number, page: number): number {
   return page === 0 ? seed : (seed ^ Math.imul(page, 0x9e3779b1)) >>> 0;
 }
 
+/** A signature's size, as a multiple of the text's: people sign larger than they write. */
+const SIGNATURE_SCALE = 1.35;
+
 /**
- * Lays out the text and places the damage for `settings`, measuring with `measure`:
- * one scene per page. Each page gets its own sheet, hand and damage.
+ * Lays out the text and places the damage for `settings`, measuring with `measure`
+ * (and the signature with `signatureMeasure`): one scene per page. Each page gets its
+ * own sheet, hand and damage.
  */
-export function buildScenes(settings: Settings, measure: Measure): Scene[] {
+export function buildScenes(settings: Settings, measure: Measure, signatureMeasure = measure): Scene[] {
   const medium: MediumDef = MEDIA[settings.medium];
   const font: FontDef = FONTS[settings.font];
   const method: MethodDef = METHODS[settings.method];
@@ -127,10 +131,14 @@ export function buildScenes(settings: Settings, measure: Measure): Scene[] {
   const padding = { x: medium.padding.x * scale, y: medium.padding.y * scale };
   const box = textBox(settings.shape, width, height, padding);
 
-  const written =
+  const inScript =
     settings.script === 'latin' ? (settings.roman ? romanize(settings.text) : settings.text) : transliterate(settings.text, settings.script);
-  const source = normalizeText(written);
-  const { text, spans } = parseMarkup(source);
+  const body = parseMarkup(normalizeText(inScript));
+  // The signature stays in Latin letters, in a hand of its own. Two blank lines are
+  // left for it under the text, so fitting and paging make room.
+  const signature = parseMarkup(normalizeText(settings.signature).replace(/\n/g, ' '));
+  const text = signature.text ? `${body.text}\n\n` : body.text;
+  const { spans } = body;
   const layoutOptions = {
     box,
     align: settings.align,
@@ -164,11 +172,20 @@ export function buildScenes(settings: Settings, measure: Measure): Scene[] {
     const pageSpans = spans
       .filter((span) => span.end > pageText.start && span.start < pageEnd)
       .map((span) => ({ ...span, start: span.start - pageText.start, end: span.end - pageText.start }));
-    const marks = markedAreas(drawing, pageSpans, measure);
+    if (signature.text && page === pages.length - 1) {
+      // Its runs and marks are numbered on from the end of the page's text.
+      const from = pageText.text.length + 1;
+      const runs = signRuns(signature.text, settings, { medium, layout, measure, signatureMeasure, box, size, from, seed: seeds.hand });
+      if (drawing.size === 0) drawing.size = size;
+      for (const run of runs) run.scale *= runs.size / drawing.size;
+      drawing.runs.push(...runs);
+      pageSpans.push(...signature.spans.map((span) => ({ ...span, start: span.start + from, end: span.end + from })));
+    }
+    const marks = markedAreas(drawing, pageSpans, measure, signatureMeasure);
     const seed = (id: string) => seedFor(seeds.damage, id);
     // Points in the middle of the writing, where a pen would have dropped its blots.
     const written = drawing.runs.map((run): [number, number] => [
-      run.x + 0.5 * measure.width(run.text) * drawing.size * run.scale,
+      run.x + 0.5 * (run.font ? signatureMeasure : measure).width(run.text) * drawing.size * run.scale,
       run.y - 0.3 * drawing.size * run.scale,
     ]);
 
@@ -239,6 +256,50 @@ export function buildScenes(settings: Settings, measure: Measure): Scene[] {
       },
     };
   });
+}
+
+/**
+ * A signature's runs, below the last line of text: at the right, or in the middle under
+ * centred text; larger than the text if it fits. Written with the medium's own hand
+ * (a pen even on a typed page). `size` is the text's size; the runs are drawn at
+ * `runs.size`, and number their characters on from `from`.
+ */
+function signRuns(
+  text: string,
+  settings: Settings,
+  where: {
+    medium: MediumDef;
+    layout: TextLayout;
+    measure: Measure;
+    signatureMeasure: Measure;
+    box: Box;
+    size: number;
+    from: number;
+    seed: number;
+  },
+): Run[] & { size: number } {
+  const { medium, layout, measure, signatureMeasure, box, size, from, seed } = where;
+  const font = FONTS[settings.signatureFont];
+  const width1 = lineWidth(text, 1, signatureMeasure, font.letterSpacing);
+  // Match the size of its small letters to the text's, then go larger: scripts draw
+  // their letters at very different sizes for the same font size.
+  const xHeight = (m: Measure) => m.xHeight ?? 0.5 * m.ascent;
+  const matched = (size * xHeight(measure)) / Math.max(xHeight(signatureMeasure), 1e-6);
+  const sigSize = Math.min(SIGNATURE_SCALE * matched, (0.96 * box.width) / Math.max(width1, 1e-6));
+  const width = width1 * sigSize;
+  const last = layout.lines.findLast((line) => line.text.trim());
+  const top = last ? last.baseline + (measure.descent + 0.5) * size : box.y;
+  const baseline = top + signatureMeasure.ascent * sigSize;
+  const x = settings.align === 'center' ? box.x + (box.width - width) / 2 : box.x + box.width - width;
+  const hand = { ...medium.hand, perGlyph: medium.hand.perGlyph && !font.connected };
+  const signed = drawText(
+    { size: sigSize, letterSpacing: font.letterSpacing, lines: [{ text, start: 0, x, baseline, width }] },
+    signatureMeasure,
+    hand,
+    seed ^ 0x51c2,
+  );
+  const runs = signed.runs.map((run) => ({ ...run, source: run.source + from, font: settings.signatureFont, handwritten: true }));
+  return Object.assign(runs, { size: sigSize });
 }
 
 /** Ruled lines between each pair of lines of text, across the text area, not quite level. */

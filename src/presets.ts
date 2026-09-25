@@ -107,7 +107,8 @@ export const PRESETS: Preset[] = [
         'MISKATONIC UNIVERSITY\nDEPARTMENT OF ANTIQUITIES\n\nDr. Armitage,\n\nThe tablet recovered at [[Kingsport]] ' +
         'is not Sumerian, whatever Professor Dyer claims. I have locked it in the vault beneath [[the east ' +
         'library]] and told no one else.\n\nThree of the night staff have asked to be moved to the day ' +
-        'shift.\n\nRespectfully,\nF. Morgan',
+        'shift.\n\nRespectfully,',
+      signature: 'F. Morgan',
       damage: 0.35,
       damageMix: { water: 0.6, folds: 0.7, foxing: 0.3, tears: 0.2, burns: 0, blots: 0, smudges: 0 },
       fade: 0.2,

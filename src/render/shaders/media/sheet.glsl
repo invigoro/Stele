@@ -107,7 +107,7 @@ void buildSurface(vec2 p, inout Surface s) {
   // A blot is one even pool of ink: nothing written underneath shows through it.
   ink = mix(ink, 0.96, max(blotsAt(p), paintedBlotAt(p, painted.blot)));
   // Dissolved ink spreads browner than it dried.
-  vec3 tone = mix(inkColor(), vec3(0.42, 0.33, 0.26), 0.6 * water.wet);
+  vec3 tone = mix(inkColorAt(p), vec3(0.42, 0.33, 0.26), 0.6 * water.wet);
   s.albedo = mix(s.albedo, s.albedo * tone, ink);
 
   // Burns: scorched brown, then black and curling at the burned edge.
