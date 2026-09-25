@@ -1,6 +1,8 @@
 import './style.css';
 import * as twgl from 'twgl.js';
-import { download, renderPng } from './export/exportPng';
+import { pdfImage } from './export/exportPdf';
+import { download, renderImage, renderPng } from './export/exportPng';
+import { pdf, type PdfPage } from './export/pdf';
 import { printImages } from './export/print';
 import { zip } from './export/zip';
 import { DistanceField } from './render/distanceField';
@@ -65,6 +67,10 @@ async function start(): Promise<void> {
     if (allPages && !allPages.disabled) {
       allPages.hidden = pageCount < 2;
       allPages.textContent = `Download all ${pageCount} pages (.zip)`;
+    }
+    const pdfButton = controls.querySelector<HTMLButtonElement>('.pdf');
+    if (pdfButton && !pdfButton.disabled) {
+      pdfButton.textContent = pageCount > 1 ? `Download PDF of all ${pageCount} pages` : 'Download PDF';
     }
   };
 
@@ -193,6 +199,20 @@ async function start(): Promise<void> {
           files.push({ name: `page-${scene.page + 1}.png`, data: new Uint8Array(await blob.arrayBuffer()) });
         }
         download(new Blob([zip(files)], { type: 'application/zip' }), `${fileStem(settings)}-pages.zip`);
+      }),
+    exportPdf: (button) =>
+      busy(button, 'Rendering…', async () => {
+        const settings = store.get();
+        const scenes = await scenesFor(settings);
+        const background = settings.transparent ? TRANSPARENT : WHITE;
+        const mmPerPixel = 25.4 / PRINT_DPI;
+        const pages: PdfPage[] = [];
+        for (const scene of scenes) {
+          if (scenes.length > 1) button.textContent = `Rendering page ${scene.page + 1} of ${scenes.length}…`;
+          const image = await renderImage(gpu, distanceField, scene, PRINT_DPI, background);
+          pages.push({ image: await pdfImage(image), widthMm: image.width * mmPerPixel, heightMm: image.height * mmPerPixel });
+        }
+        download(new Blob([pdf(pages)], { type: 'application/pdf' }), `${fileStem(settings)}.pdf`);
       }),
     print: (button) =>
       busy(button, 'Preparing…', async () => {

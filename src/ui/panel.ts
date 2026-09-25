@@ -19,6 +19,7 @@ export interface PanelActions {
   page: () => number;
   exportPng: (button: HTMLButtonElement) => void;
   exportAllPages: (button: HTMLButtonElement) => void;
+  exportPdf: (button: HTMLButtonElement) => void;
   print: (button: HTMLButtonElement) => void;
   copyLink: (button: HTMLButtonElement) => void;
 }
@@ -304,6 +305,8 @@ export function renderPanel(container: HTMLElement, store: Store<Settings>, acti
     className: 'secondary all-pages',
   });
   allPagesButton.hidden = true;
+  // main.ts says how many pages it holds.
+  const pdfButton = button('Download PDF', () => actions.exportPdf(pdfButton), { className: 'secondary pdf' });
   const printButton = button('Print at actual size', () => actions.print(printButton), { className: 'secondary' });
   const linkButton = button('Copy link to this handout', () => actions.copyLink(linkButton), { className: 'secondary' });
   sections.push(
@@ -311,6 +314,7 @@ export function renderPanel(container: HTMLElement, store: Store<Settings>, acti
       'Output',
       exportButton,
       allPagesButton,
+      pdfButton,
       checkbox({
         label: 'Transparent background (for virtual tabletops)',
         checked: settings.transparent,

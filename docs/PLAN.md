@@ -122,8 +122,8 @@ interface Settings {
 | Marble | V-cut (optionally filled with paint or gold) | chips, cracks, broken edges, staining/soot, lichen | grooves get shallower and rounder, thin strokes go first; fresh-cut contrast and paint wear away |
 | Sandstone | V- or U-cut | chips, flaking, honeycomb pitting, cracks, broken edges, moss | same, but coarser and patchier; the grain drowns out shallow cuts |
 | Wood | carved, painted, or burned | splits along the grain, gouges, burns, rot, worm and nail holes | carving softens and greys; paint flakes; burned letters lighten |
-| Paper | iron-gall ink | tears, burns, water damage (running ink + stain rings), smudges, folds, stains, age spots | ink thins, breaks up and browns; worst along folds and edges |
-| Papyrus | carbon ink | holes, breaks along the fibres, frayed edges, darkening | ink flakes off in patches |
+| Paper | iron-gall ink | tears, burns, water damage (running ink + stain rings), smudges, ink blots, folds, stains, age spots | ink thins, breaks up and browns; worst along folds and edges |
+| Papyrus | carbon ink | holes, breaks along the fibres, frayed edges, darkening, ink blots | ink flakes off in patches |
 | *Parchment* | ink | as paper, plus warping | as paper |
 | *Granite, Slate* | V-cut, gold-filled | as marble | granite's speckle hides letters; slate's pale fresh-cut letters dull to the surface color |
 
@@ -187,7 +187,11 @@ printer came out fine in testing.
   object, so it prints at true size at 100% scale. The paper size comes from the browser's print
   dialog; an object too big for the page shrinks to fit.
 - **PNG download:** includes the DPI, with an optional transparent background for virtual
-  tabletops like Foundry and Roll20. PDF export comes later.
+  tabletops like Foundry and Roll20.
+- **PDF download:** every page in one file, each page the handout's real size, as a 300 DPI JPEG
+  (about a megabyte a page, where a PNG takes several). The pages are images only, with no text
+  layer, so hidden words can't be selected or searched for. When every page fits on A4 and Letter,
+  the PDF asks viewers to print at actual size.
 - **Share links:** the page's URL always encodes the current handout (compressed settings after
   `#s=`), and settings are saved in the browser between visits.
 - **Not built:** a calibration page and a print-friendly brightness option. Printing isn't the
@@ -258,14 +262,16 @@ dialog, and the calibration page is deferred)*
   WebGL2
 
 **After Phase 3** *(done)*: shader compile times cut (see Shader performance), damage painted on by
-hand, and long text flowing onto more pages, with every page printed or zipped together.
+hand, and long text flowing onto more pages, with every page printed or zipped together. Then PDF
+download, moss as a brush on stone, `[` and `]` for the brush size, and ink blots as a damage type
+on paper, parchment and papyrus.
 
 **Backlog:**
 - media: bronze plaque, clay and wax tablets, leather, chalk on slate
 - writing methods: pencil, typewriter, burned-in lettering
 - extras: wax seals, a signature in a different hand
 - converting text to runes
-- PDF export, and a "photo mode" showing the object on a table
+- a "photo mode" showing the object on a table
 - offline use
 
 ## Risks
