@@ -31,6 +31,39 @@ Growth lichenAt(vec2 p) {
   return Growth(cover, color, cover * (0.12 + 0.06 * snoise(p * 1.5)));
 }
 
+// The height of a round cushion in a worley cell (0 at its rim, 1 on top), `radius` in
+// cells. Keep radii under half a cell, or cushions get cut off where cells meet.
+float cushion(vec3 cell, float radius) {
+  float t = cell.x / max(radius, 0.001);
+  return sqrt(max(1.0 - t * t, 0.0));
+}
+
+// Moss painted on by hand (`painted` is its coverage): a low mat crowded with rounded
+// cushions, big and small, which shrink and stand apart toward the edge of the paint.
+Growth mossAt(vec2 p, float painted) {
+  if (painted <= 0.0) return Growth(0.0, vec3(0.0), 0.0);
+  float depth = painted + 0.4 * fbm(p / 6.0 + u_damageSeed * 1.9, 3) + 0.12 * fbm(p / 2.0 + u_damageSeed * 5.3, 2);
+  float grown = smoothstep(0.05, 0.65, depth);
+  vec3 big = worley(p / 5.0 + u_damageSeed * 0.61);
+  vec3 small = worley(p / 2.2 + u_damageSeed * 1.37);
+  float bigDome = cushion(big, (0.25 + 0.2 * big.y) * grown);
+  float smallDome = cushion(small, (0.2 + 0.2 * small.y) * grown) * step(0.4, small.z);
+  float dome = max(bigDome, smallDome);
+  float cover = max(smoothstep(0.45, 0.52, depth), smoothstep(0.0, 0.2, dome));
+  if (cover <= 0.0) return Growth(0.0, vec3(0.0), 0.0);
+
+  // Deep green to yellowish in broad patches and browned off in places; each cushion a
+  // little different, paler on top and darker down between them.
+  float shoots = snoise(p / 0.3 + u_damageSeed) * detail(0.3);
+  float hue = 0.5 + 0.5 * fbm(p / 10.0 + u_damageSeed * 2.3, 3);
+  vec3 color = mix(vec3(0.2, 0.28, 0.09), vec3(0.48, 0.53, 0.2), hue);
+  float browned = smoothstep(0.6, 0.85, 0.5 + 0.5 * fbm(p / 16.0 + u_damageSeed * 3.7, 2));
+  color = mix(color, vec3(0.46, 0.4, 0.25), 0.65 * browned);
+  color *= (0.92 + 0.16 * (bigDome > smallDome ? big.z : small.z)) * (0.72 + 0.35 * dome + 0.1 * shoots);
+  float height = 0.25 + 0.5 * smoothstep(0.45, 1.0, depth) + 0.9 * bigDome + 0.45 * smallDome + 0.08 * shoots;
+  return Growth(cover, color, cover * height);
+}
+
 // Soot and runoff: dark streaks where rain ran down from the top, and sooty patches.
 float sootAt(vec2 p) {
   if (u_soot <= 0.0) return 0.0;

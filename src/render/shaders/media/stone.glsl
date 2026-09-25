@@ -18,6 +18,15 @@
 
 const float ARRIS = 2.0; // mm, width of the rounded front edge
 
+// Covers the surface with lichen or moss, which fills hollows up to `fill` mm below the face.
+void overgrow(inout Surface s, Growth growth, float face, float fill) {
+  if (growth.cover <= 0.0) return;
+  s.height = mix(s.height, max(s.height, face - fill) + growth.height, growth.cover);
+  s.albedo = mix(s.albedo, growth.color, growth.cover);
+  s.roughness = mix(s.roughness, 1.0, growth.cover);
+  s.metal *= 1.0 - growth.cover;
+}
+
 void buildSurface(vec2 p, inout Surface s) {
   // Outline, less any big breaks that make the slab a fragment.
   float outside = outlineDistance(p, CORNER_RADIUS);
@@ -34,8 +43,8 @@ void buildSurface(vec2 p, inout Surface s) {
   s.albedo = mix(s.albedo, freshStone(s.albedo), 0.8 * breakFace);
   // The face before any lettering: where damage takes the surface away, the letters' colour goes with it.
   vec3 faceColor = s.albedo;
-  vec4 painted = paintAt(p);
-  float worn = softEdge(painted.g); // painted "wear away"
+  PaintedDamage painted = paintAt(p);
+  float worn = softEdge(painted.wear); // painted "wear away"
 
   // Weathering: the face wears down unevenly and roughens.
   float patchy = 0.5 + 0.5 * fbm(p / 45.0 + u_fadeSeed, 3);
@@ -89,7 +98,7 @@ void buildSurface(vec2 p, inout Surface s) {
   s.alpha *= 1.0 - chips.missing;
 
   // Painted chips: a scar with a steep, ragged wall and a rough floor.
-  float chipped = raggedEdge(painted.r, p, 4.0);
+  float chipped = raggedEdge(painted.breakage, p, 4.0);
   if (chipped > 0.0) {
     float floorDepth = 2.2 + 0.8 * fbm(p / 2.5 + u_damageSeed * 1.9, 3);
     s.height = mix(s.height, min(s.height, face - floorDepth), chipped);
@@ -106,21 +115,18 @@ void buildSurface(vec2 p, inout Surface s) {
 
   // Painted stains soak in unevenly, and scorching leaves blotchy soot that thins out
   // toward its edges, over a faint warm discolouring.
-  float stained = softEdge(painted.b) * (0.5 + 0.5 * fbm(p / 5.0 + u_damageSeed * 2.3, 4));
+  float stained = softEdge(painted.stain) * (0.5 + 0.5 * fbm(p / 5.0 + u_damageSeed * 2.3, 4));
   s.albedo *= mix(vec3(1.0), vec3(0.47, 0.42, 0.35), 0.8 * stained);
-  float soot = softEdge(painted.a) * (0.55 + 0.45 * fbm(p / 4.0 + u_damageSeed * 3.1, 4));
-  s.albedo = mix(s.albedo, s.albedo * vec3(0.82, 0.74, 0.66), 0.5 * smoothstep(0.0, 0.3, painted.a) * (1.0 - soot));
+  float soot = softEdge(painted.burn) * (0.55 + 0.45 * fbm(p / 4.0 + u_damageSeed * 3.1, 4));
+  s.albedo = mix(s.albedo, s.albedo * vec3(0.82, 0.74, 0.66), 0.5 * smoothstep(0.0, 0.3, painted.burn) * (1.0 - soot));
   s.albedo = mix(s.albedo, s.albedo * 0.16 + vec3(0.02), 0.9 * soot);
   s.roughness = mix(s.roughness, 0.95, soot);
   s.metal *= 1.0 - soot;
 
-  // Lichen grows over everything, partly filling the grooves.
+  // Lichen grows over everything, partly filling the grooves; painted moss grows thick
+  // enough to fill them.
   Growth lichen = lichenAt(p);
   lichen.cover *= open;
-  if (lichen.cover > 0.0) {
-    s.height = mix(s.height, max(s.height, face - 0.6) + lichen.height, lichen.cover);
-    s.albedo = mix(s.albedo, lichen.color, lichen.cover);
-    s.roughness = mix(s.roughness, 1.0, lichen.cover);
-    s.metal *= 1.0 - lichen.cover;
-  }
+  overgrow(s, lichen, face, 0.6);
+  overgrow(s, mossAt(p, painted.growth), face, 0.15);
 }

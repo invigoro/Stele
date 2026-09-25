@@ -2,18 +2,24 @@ import type { Family } from '../media/media';
 import type { Raster } from '../text/rasterize';
 
 /**
- * Damage painted by hand, in four generic kinds that each medium interprets its own
- * way (see PAINT_LABELS), so strokes still make sense after switching medium.
+ * Damage painted by hand, in generic kinds that each medium interprets its own way (see
+ * PAINT_LABELS), so strokes still make sense after switching medium. Not every medium
+ * has every kind: only stone grows moss.
  */
-export type PaintKind = 'break' | 'wear' | 'stain' | 'burn';
+export type PaintKind = 'break' | 'wear' | 'stain' | 'burn' | 'growth';
 
-export const PAINT_KINDS: readonly PaintKind[] = ['break', 'wear', 'stain', 'burn'];
+export const PAINT_KINDS: readonly PaintKind[] = ['break', 'wear', 'stain', 'burn', 'growth'];
 
-export const PAINT_LABELS: Record<Family, Record<PaintKind, string>> = {
-  stone: { break: 'Chip', wear: 'Wear away', stain: 'Stain', burn: 'Scorch' },
+export const PAINT_LABELS: Record<Family, Partial<Record<PaintKind, string>>> = {
+  stone: { break: 'Chip', wear: 'Wear away', stain: 'Stain', burn: 'Scorch', growth: 'Moss' },
   wood: { break: 'Gouge', wear: 'Wear away', stain: 'Rot', burn: 'Burn' },
   sheet: { break: 'Hole', wear: 'Rub out', stain: 'Water', burn: 'Burn' },
 };
+
+/** The kinds of damage that can be painted onto a family of media, in the order offered. */
+export function paintKinds(family: Family): PaintKind[] {
+  return PAINT_KINDS.filter((kind) => PAINT_LABELS[family][kind] !== undefined);
+}
 
 /**
  * One brush stroke. Positions are fractions of the object's width and height, and the
@@ -55,18 +61,27 @@ export function extendStroke(stroke: Stroke, point: [number, number], aspect: nu
 const SOFTNESS_MM = 2.5;
 
 /**
- * Draws strokes into soft masks for the shaders: `main` gets break, wear and stain in
- * its red, green and blue channels, and `burn` gets burning in red. Brush strokes are
+ * Where each kind is drawn for the shaders: which of the two masks, and in which colour
+ * channel (read back by paintAt in shaders/damage/painted.glsl).
+ */
+const CHANNELS: Record<PaintKind, { mask: 0 | 1; color: string }> = {
+  break: { mask: 0, color: '#f00' },
+  wear: { mask: 0, color: '#0f0' },
+  stain: { mask: 0, color: '#00f' },
+  burn: { mask: 1, color: '#f00' },
+  growth: { mask: 1, color: '#0f0' },
+};
+
+/**
+ * Draws strokes into two soft masks for the shaders (see CHANNELS). Brush strokes are
  * blurred by drawing each shape far off the canvas and letting only its shadow land.
  */
 export function rasterizePaint(
   strokes: readonly Stroke[],
   size: { width: number; height: number },
   raster: Raster,
-  main: HTMLCanvasElement,
-  burn: HTMLCanvasElement,
+  masks: readonly [HTMLCanvasElement, HTMLCanvasElement],
 ): void {
-  const colors: Record<PaintKind, string> = { break: '#f00', wear: '#0f0', stain: '#00f', burn: '#f00' };
   const short = Math.min(size.width, size.height);
   const toPx = ([u, v]: [number, number]): [number, number] => [
     (u * size.width - raster.originMm[0]) * raster.pxPerMm,
@@ -74,7 +89,7 @@ export function rasterizePaint(
   ];
   const away = 4 * (raster.width + raster.height); // far enough that only the shadow shows
 
-  for (const canvas of [main, burn]) {
+  masks.forEach((canvas, mask) => {
     canvas.width = raster.width;
     canvas.height = raster.height;
     const ctx = canvas.getContext('2d');
@@ -87,9 +102,10 @@ export function rasterizePaint(
     ctx.shadowBlur = SOFTNESS_MM * raster.pxPerMm;
     ctx.shadowOffsetX = away;
     for (const stroke of strokes) {
-      if ((canvas === burn) !== (stroke.kind === 'burn') || stroke.points.length === 0) continue;
-      ctx.shadowColor = colors[stroke.kind];
-      ctx.strokeStyle = colors[stroke.kind];
+      const channel = CHANNELS[stroke.kind];
+      if (channel.mask !== mask || stroke.points.length === 0) continue;
+      ctx.shadowColor = channel.color;
+      ctx.strokeStyle = channel.color;
       ctx.lineWidth = Math.max(1, 2 * stroke.radius * short * raster.pxPerMm);
       ctx.beginPath();
       const [x0, y0] = toPx(stroke.points[0]);
@@ -101,5 +117,5 @@ export function rasterizePaint(
       }
       ctx.stroke();
     }
-  }
+  });
 }

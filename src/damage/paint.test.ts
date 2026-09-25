@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { extendStroke, MAX_POINTS, PAINT_KINDS, PAINT_LABELS, quantize, type Stroke } from './paint';
+import { MEDIA } from '../media/media';
+import { extendStroke, MAX_POINTS, PAINT_KINDS, PAINT_LABELS, paintKinds, quantize, type Stroke } from './paint';
 
 const stroke = (points: [number, number][] = [], radius = 0.03): Stroke => ({ kind: 'break', radius, points, page: 0 });
 
@@ -31,10 +32,19 @@ describe('extendStroke', () => {
 });
 
 describe('paint kinds', () => {
-  it('has a label for every kind on every family of media', () => {
-    for (const labels of Object.values(PAINT_LABELS)) {
-      expect(Object.keys(labels).sort()).toEqual([...PAINT_KINDS].sort());
+  it('offers the four common kinds on every family of media, in order', () => {
+    for (const family of Object.keys(PAINT_LABELS) as (keyof typeof PAINT_LABELS)[]) {
+      expect(paintKinds(family).slice(0, 4)).toEqual(['break', 'wear', 'stain', 'burn']);
+      for (const kind of paintKinds(family)) expect(PAINT_LABELS[family][kind]).toBeTruthy();
     }
+    expect(PAINT_KINDS).toEqual(paintKinds('stone'));
+  });
+
+  it('offers moss on exactly the media that grow lichen and moss', () => {
+    for (const medium of Object.values(MEDIA)) {
+      expect(paintKinds(medium.family).includes('growth'), medium.label).toBe('lichen' in medium.damage);
+    }
+    expect(PAINT_LABELS.stone.growth).toBe('Moss');
   });
 
   it('rounds coordinates for compact links', () => {

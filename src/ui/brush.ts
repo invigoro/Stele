@@ -1,4 +1,5 @@
-import { extendStroke, MAX_STROKES, quantize, type PaintKind, type Stroke } from '../damage/paint';
+import { extendStroke, MAX_STROKES, paintKinds, quantize, type PaintKind, type Stroke } from '../damage/paint';
+import { MEDIA } from '../media/media';
 import type { Placement } from '../render/display';
 import { imageSize } from '../render/renderer';
 import type { Scene } from '../scene';
@@ -9,6 +10,22 @@ import type { Store } from './store';
 export interface BrushState {
   tool: PaintKind | null;
   size: number;
+}
+
+/** Brush sizes, mm, that [ and ] step through: finer steps for small brushes, as in Photoshop. */
+export const BRUSH_SIZES: readonly number[] = [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 25, 30, 35, 40];
+
+/** The next brush size up or down from `size`, stopping at the ends. */
+export function stepBrushSize(size: number, direction: 1 | -1): number {
+  if (direction > 0) return BRUSH_SIZES.find((step) => step > size) ?? BRUSH_SIZES[BRUSH_SIZES.length - 1];
+  return BRUSH_SIZES.findLast((step) => step < size) ?? BRUSH_SIZES[0];
+}
+
+/** Whether keys pressed in an element type into it, so shortcuts should leave them alone. */
+export function typesText(target: EventTarget | null): boolean {
+  if (target instanceof HTMLTextAreaElement) return true;
+  if (target instanceof HTMLInputElement) return !['range', 'checkbox', 'radio', 'button', 'color'].includes(target.type);
+  return target instanceof HTMLElement && target.isContentEditable;
 }
 
 /** What's on the preview canvas, for turning pointer positions into object positions. */
@@ -37,7 +54,8 @@ export function shownPxPerMm(view: View): number {
 
 /**
  * Lets the user paint damage onto the preview: drag to paint with the current brush,
- * with a circle showing its size. Strokes go into the settings, on `page`.
+ * with a circle showing its size. Strokes go into the settings, on `page`. Ctrl/Cmd+Z
+ * undoes a stroke, and [ and ] make the brush smaller and larger.
  */
 export function attachBrush(options: {
   canvas: HTMLCanvasElement;
@@ -49,6 +67,8 @@ export function attachBrush(options: {
 }): void {
   const { canvas, cursor, brush, store, view, page } = options;
   let painting: number | null = null;
+  // Where the pointer is over the canvas, if it is, for drawing the brush's circle.
+  let pointer: { clientX: number; clientY: number } | null = null;
 
   const canvasPoint = (event: PointerEvent): [number, number] => {
     const box = canvas.getBoundingClientRect();
@@ -58,10 +78,10 @@ export function attachBrush(options: {
     ];
   };
 
-  const showCursor = (event: PointerEvent | null) => {
+  const showCursor = () => {
     const current = view();
     const { tool, size } = brush.get();
-    if (!event || !tool || !current) {
+    if (!pointer || !tool || !current) {
       cursor.hidden = true;
       return;
     }
@@ -70,17 +90,16 @@ export function attachBrush(options: {
     const diameter = size * shownPxPerMm(current) * cssPerCanvasPx;
     cursor.hidden = false;
     cursor.style.width = cursor.style.height = `${diameter}px`;
-    cursor.style.left = `${event.clientX - box.left}px`;
-    cursor.style.top = `${event.clientY - box.top}px`;
+    cursor.style.left = `${pointer.clientX - box.left}px`;
+    cursor.style.top = `${pointer.clientY - box.top}px`;
   };
 
-  const updateCanvasStyle = () => {
-    const active = brush.get().tool !== null;
-    canvas.classList.toggle('painting', active);
-    if (!active) cursor.hidden = true;
+  const brushChanged = () => {
+    canvas.classList.toggle('painting', brush.get().tool !== null);
+    showCursor();
   };
-  brush.subscribe(updateCanvasStyle);
-  updateCanvasStyle();
+  brush.subscribe(brushChanged);
+  brushChanged();
 
   canvas.addEventListener('pointerdown', (event) => {
     const current = view();
@@ -96,7 +115,8 @@ export function attachBrush(options: {
   });
 
   canvas.addEventListener('pointermove', (event) => {
-    showCursor(event);
+    pointer = event;
+    showCursor();
     const current = view();
     if (painting !== event.pointerId || !current) return;
     const strokes = store.get().strokes;
@@ -112,12 +132,38 @@ export function attachBrush(options: {
   };
   canvas.addEventListener('pointerup', stop);
   canvas.addEventListener('pointercancel', stop);
-  canvas.addEventListener('pointerleave', () => showCursor(null));
+  canvas.addEventListener('pointerleave', () => {
+    pointer = null;
+    showCursor();
+  });
+
+  window.addEventListener('keydown', (event) => {
+    if (typesText(event.target)) return;
+    const key = event.key.toLowerCase();
+    if (key === 'z' && (event.ctrlKey || event.metaKey) && !event.shiftKey) {
+      const settings = store.get();
+      const undone = undoStroke(settings, page());
+      if (undone === settings) return;
+      event.preventDefault();
+      store.set(undone);
+      return;
+    }
+    // [ and ] resize the brush while one is picked. Cmd+[ (Back, on a Mac) and Ctrl+[ are
+    // left alone, but not Ctrl+Alt: that's AltGr, which types [ on some keyboards.
+    const direction = key === '[' ? -1 : key === ']' ? 1 : 0;
+    if (!direction || !brush.get().tool || event.metaKey || (event.ctrlKey && !event.altKey)) return;
+    event.preventDefault();
+    brush.update((b) => ({ ...b, size: stepBrushSize(b.size, direction) }));
+  });
 }
 
-/** Removes the newest stroke on a page. */
+/**
+ * Removes the newest stroke on a page, skipping any the medium can't show (moss painted on
+ * stone, say, after switching to paper), since undoing those would appear to do nothing.
+ */
 export function undoStroke(settings: Settings, page: number): Settings {
-  const index = settings.strokes.findLastIndex((stroke) => stroke.page === page);
+  const shown = paintKinds(MEDIA[settings.medium].family);
+  const index = settings.strokes.findLastIndex((stroke) => stroke.page === page && shown.includes(stroke.kind));
   if (index < 0) return settings;
   return { ...settings, strokes: settings.strokes.filter((_, i) => i !== index) };
 }

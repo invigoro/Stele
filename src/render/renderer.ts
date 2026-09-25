@@ -75,7 +75,7 @@ export class SceneRenderer {
   private mask: WebGLTexture | null = null;
   private crackMask: WebGLTexture | null = null;
   private readonly paintCanvases = [document.createElement('canvas'), document.createElement('canvas')] as const;
-  /** Painted damage: break, wear and stain; and burning. Always real textures (see blankPaint). */
+  /** Painted damage: break, wear and stain; burning and growth. Always real textures (see render). */
   private paint: [WebGLTexture, WebGLTexture] | null = null;
   private features: WebGLTexture | null = null;
   private targets: Targets | null = null;
@@ -126,13 +126,13 @@ export class SceneRenderer {
     // texture bound would make the driver compile a different version of the shader.
     const paintKey = JSON.stringify([scene.strokes, scene.width, scene.height, width, height, pxPerMm]);
     if (paintKey !== this.keys.paint || !this.paint) {
-      const [main, burn] = this.paintCanvases;
+      const masks = this.paintCanvases;
       if (scene.strokes.length > 0) {
-        rasterizePaint(scene.strokes, scene, raster, main, burn);
+        rasterizePaint(scene.strokes, scene, raster, masks);
       } else {
-        for (const canvas of this.paintCanvases) blankCanvas(canvas);
+        for (const canvas of masks) blankCanvas(canvas);
       }
-      this.paint = [uploadCanvas(gl, this.paint?.[0] ?? null, main), uploadCanvas(gl, this.paint?.[1] ?? null, burn)];
+      this.paint = [uploadCanvas(gl, this.paint?.[0] ?? null, masks[0]), uploadCanvas(gl, this.paint?.[1] ?? null, masks[1])];
       this.keys.paint = paintKey;
     }
 
@@ -185,7 +185,7 @@ export class SceneRenderer {
       u_crackDistance: targets.cracks.texture,
       u_hasCracks: hasCracks ? 1 : 0,
       u_paint: this.paint[0],
-      u_paintBurn: this.paint[1],
+      u_paint2: this.paint[1],
       u_hasPaint: scene.strokes.length > 0 ? 1 : 0,
       u_soot: fields.soot,
       u_lichen: fields.lichen,
@@ -235,7 +235,7 @@ export class SceneRenderer {
       u_features: this.features,
       u_crackDistance: this.targets.cracks.texture,
       u_paint: this.paint?.[0],
-      u_paintBurn: this.paint?.[1],
+      u_paint2: this.paint?.[1],
       u_noise: noise.noise,
       u_random: noise.random,
     });

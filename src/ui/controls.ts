@@ -45,6 +45,8 @@ export function slider(options: {
   format: (value: number) => string;
   onInput: (value: number) => void;
   extra?: HTMLElement;
+  /** Receives a function that moves the slider, for when the value changes elsewhere. */
+  sync?: (show: (value: number) => void) => void;
 }): HTMLElement {
   const id = uniqueId('slider');
   const input = create('input');
@@ -60,6 +62,10 @@ export function slider(options: {
     const value = Number(input.value);
     output.value = options.format(value);
     options.onInput(value);
+  });
+  options.sync?.((value) => {
+    if (Number(input.value) !== value) input.value = String(value);
+    output.value = options.format(value);
   });
   return field(options.label, id, input, output, options.extra);
 }

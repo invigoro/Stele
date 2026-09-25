@@ -65,8 +65,8 @@ void buildSurface(vec2 p, inout Surface s) {
   s.height += 0.03 * late + 0.25 * wear * late;
   s.roughness = 0.75;
 
-  vec4 painted = paintAt(p);
-  float worn = softEdge(painted.g); // painted "wear away"
+  PaintedDamage painted = paintAt(p);
+  float worn = softEdge(painted.wear); // painted "wear away"
   s.height += worn * 0.2 * late;
 
   if (u_textSize > 0.0) {
@@ -99,7 +99,7 @@ void buildSurface(vec2 p, inout Surface s) {
   }
 
   // Rot: soft, dark, crumbling patches, worst toward the edges, plus any painted on.
-  float rot = raggedEdge(painted.b, p, 6.0);
+  float rot = raggedEdge(painted.stain, p, 6.0);
   if (u_rot > 0.0) {
     vec2 g = grainSpace(p);
     float n = 0.5 + 0.5 * fbm(vec2(g.x / 30.0, g.y / 10.0) + u_damageSeed, 4);
@@ -121,7 +121,7 @@ void buildSurface(vec2 p, inout Surface s) {
   s.alpha *= 1.0 - gouges.missing;
 
   // Painted gouges: a splintery floor that follows the grain.
-  float gouged = raggedEdge(painted.r, p, 4.0);
+  float gouged = raggedEdge(painted.breakage, p, 4.0);
   if (gouged > 0.0) {
     float floorDepth = 2.0 + 0.7 * fbm(grainSpace(p) / vec2(8.0, 1.5) + u_damageSeed, 3);
     s.height = mix(s.height, min(s.height, face - floorDepth), gouged);
@@ -144,9 +144,9 @@ void buildSurface(vec2 p, inout Surface s) {
 
   // Burns: charred black and cracked in the middle, scorched brown around it.
   Burning burn = burnsAt(p);
-  burn.scorch = max(burn.scorch, smoothstep(0.0, 0.5, painted.a));
+  burn.scorch = max(burn.scorch, smoothstep(0.0, 0.5, painted.burn));
   s.albedo = mix(s.albedo, s.albedo * vec3(0.5, 0.36, 0.24), burn.scorch);
-  float charred = max(max(burn.charred, burn.missing), smoothstep(0.35, 0.75, painted.a + 0.2 * fbm(p / 5.0 + u_damageSeed * 3.1, 3)));
+  float charred = max(max(burn.charred, burn.missing), smoothstep(0.35, 0.75, painted.burn + 0.2 * fbm(p / 5.0 + u_damageSeed * 3.1, 3)));
   // Char breaks into blocks; points far from any cell centre lie along the cracks.
   float crackle = smoothstep(0.42, 0.55, worley(p / 2.0 + u_damageSeed).x) * detail(0.4);
   s.albedo = mix(s.albedo, vec3(0.07, 0.05, 0.04) * (1.0 + 0.6 * crackle), charred);

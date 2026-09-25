@@ -13,7 +13,7 @@ import { buildScenes, type Scene } from './scene';
 import { defaultSettings, type Settings } from './settings';
 import { loadSaved, save, settingsFromUrl, urlHashFor } from './share';
 import { FONTS, loadFont, measureFont } from './text/fonts';
-import { attachBrush, undoStroke, type BrushState, type View } from './ui/brush';
+import { attachBrush, type BrushState, type View } from './ui/brush';
 import { renderPanel, type PanelActions } from './ui/panel';
 import { Store } from './ui/store';
 
@@ -225,16 +225,6 @@ async function start(): Promise<void> {
   };
   pagePrev.addEventListener('click', () => turnPage(-1));
   pageNext.addEventListener('click', () => turnPage(1));
-  window.addEventListener('keydown', (event) => {
-    // Ctrl/Cmd+Z undoes a painted stroke, unless the user is typing somewhere.
-    const typing = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
-    if (typing || !(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'z' || event.shiftKey) return;
-    const settings = store.get();
-    const undone = undoStroke(settings, page());
-    if (undone === settings) return;
-    event.preventDefault();
-    store.set(undone);
-  });
   store.subscribe(schedule);
   store.subscribe(remember);
   window.addEventListener('hashchange', async () => {

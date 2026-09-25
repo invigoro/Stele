@@ -76,8 +76,8 @@ uniform vec4 u_protect[8];
 uniform int u_protectCount;
 uniform sampler2D u_crackDistance; // signed distance to cracks in mm, > 0 inside
 uniform float u_hasCracks;
-uniform sampler2D u_paint;     // painted damage: r = break, g = wear, b = stain
-uniform sampler2D u_paintBurn; // painted damage: r = burn
+uniform sampler2D u_paint;  // painted damage: r = break, g = wear, b = stain
+uniform sampler2D u_paint2; // painted damage: r = burn, g = growth
 uniform float u_hasPaint;
 // Damage spread across the surface, 0..1 each.
 uniform float u_soot;

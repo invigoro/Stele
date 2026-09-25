@@ -47,15 +47,15 @@ void buildSurface(vec2 p, inout Surface s) {
   float torn = -cutsAt(p, TEAR_ROW, u_tearCount, 1.8, TEAR_SCALE, 0.3);
   float holes = -holesAt(p, HOLE_RAGGED);
   float edges = min(outline, min(torn, holes)); // distance to the nearest edge, mm
-  vec4 painted = paintAt(p);
+  PaintedDamage painted = paintAt(p);
   // Painted holes, with fibrous edges.
-  float hole = raggedEdge(painted.r, p, 2.5);
+  float hole = raggedEdge(painted.breakage, p, 2.5);
   // Painted burns: burned through in the middle, charred around that, scorched outside.
   Burning burn = burnsAt(p);
-  float burnt = painted.a + 0.2 * fbm(p / 4.0 + u_damageSeed * 3.1, 3);
+  float burnt = painted.burn + 0.2 * fbm(p / 4.0 + u_damageSeed * 3.1, 3);
   burn.missing = max(burn.missing, smoothstep(0.62, 0.7, burnt));
   burn.charred = max(burn.charred, smoothstep(0.42, 0.6, burnt));
-  burn.scorch = max(burn.scorch, smoothstep(0.02, 0.45, painted.a));
+  burn.scorch = max(burn.scorch, smoothstep(0.02, 0.45, painted.burn));
   s.alpha = coverageFrom(edges) * (1.0 - burn.missing) * (1.0 - hole);
 
   sheetFace(p, s);
@@ -63,7 +63,7 @@ void buildSurface(vec2 p, inout Surface s) {
   s.albedo *= mix(vec3(1.0), u_palette[1] / max(u_palette[0], vec3(0.01)), 0.6 * (1.0 - smoothstep(0.0, 14.0, outline)));
   // Torn edges and holes show pale, fluffy fibres.
   float tornEdge = 1.0 - smoothstep(0.0, 0.8, min(torn, holes));
-  tornEdge = max(tornEdge, smoothstep(0.1, 0.45, painted.r) * (1.0 - hole));
+  tornEdge = max(tornEdge, smoothstep(0.1, 0.45, painted.breakage) * (1.0 - hole));
   s.albedo = mix(s.albedo, min(s.albedo * 1.06 + 0.03, vec3(1.0)), 0.7 * tornEdge);
 
   float open = 1.0 - shielded(p);
@@ -72,8 +72,8 @@ void buildSurface(vec2 p, inout Surface s) {
 
   Water water = waterAt(p);
   // Painted water: soaked inside, with a dark tideline where it dried.
-  if (painted.b > 0.0) {
-    float soaked = painted.b + 0.15 * fbm(p / 6.0 + u_damageSeed * 1.3, 3);
+  if (painted.stain > 0.0) {
+    float soaked = painted.stain + 0.15 * fbm(p / 6.0 + u_damageSeed * 1.3, 3);
     water.wet = max(water.wet, smoothstep(0.3, 0.6, soaked));
     float ring = (soaked - 0.45) / 0.07;
     water.tide = max(water.tide, 0.85 * exp(-ring * ring));
@@ -101,7 +101,7 @@ void buildSurface(vec2 p, inout Surface s) {
   }
   ink *= 1.0 - 0.8 * folds.wear;
   // Painted "rub out": the ink is worn off, leaving the faintest traces, and the sheet is scuffed.
-  float rubbed = softEdge(painted.g);
+  float rubbed = softEdge(painted.wear);
   ink *= 1.0 - 0.92 * rubbed;
   s.albedo = mix(s.albedo, min(s.albedo * 1.02 + 0.005, vec3(1.0)), 0.3 * rubbed);
   // A blot is one even pool of ink: nothing written underneath shows through it.

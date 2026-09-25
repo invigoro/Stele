@@ -1,4 +1,4 @@
-import { PAINT_KINDS, PAINT_LABELS, type PaintKind } from '../damage/paint';
+import { PAINT_LABELS, paintKinds, type PaintKind } from '../damage/paint';
 import { DAMAGE_TYPES, type DamageId } from '../damage/types';
 import { MEDIA, type MediumDef, type MediumId } from '../media/media';
 import { SHAPES, type ShapeId } from '../media/shapes';
@@ -9,7 +9,7 @@ import { FONTS, type FontId } from '../text/fonts';
 import type { Align } from '../text/layout';
 import type { PageMode } from '../text/pages';
 import { randomSeed } from '../util/rng';
-import { clearStrokes, undoStroke, type BrushState } from './brush';
+import { BRUSH_SIZES, clearStrokes, undoStroke, type BrushState } from './brush';
 import { button, buttonRow, checkbox, hint, section, segmented, select, slider, textArea } from './controls';
 import type { Store } from './store';
 
@@ -43,9 +43,13 @@ function describeSize(medium: MediumDef, scale: number): string {
 
 /** Whether the "Damage types" section is open; kept across rebuilds of the panel. */
 let damageTypesOpen = false;
+/** The current panel's subscriptions, dropped when it's rebuilt. */
+let subscriptions: (() => void)[] = [];
 
 /** Builds the control panel for the current settings. Rebuilt when the medium changes. */
 export function renderPanel(container: HTMLElement, store: Store<Settings>, actions: PanelActions): void {
+  for (const unsubscribe of subscriptions) unsubscribe();
+  subscriptions = [];
   const settings = store.get();
   const medium: MediumDef = MEDIA[settings.medium];
   const rebuild = () => renderPanel(container, store, actions);
@@ -215,27 +219,35 @@ export function renderPanel(container: HTMLElement, store: Store<Settings>, acti
   ];
 
   const { brush } = actions;
+  const kinds = paintKinds(medium.family);
   const labels = PAINT_LABELS[medium.family];
+  // A brush this medium doesn't have (moss, after switching from stone to paper) turns off.
+  const tool = brush.get().tool;
+  if (tool && !kinds.includes(tool)) brush.update((b) => ({ ...b, tool: null }));
   sections.push(
     section(
       'Paint damage',
       segmented<PaintKind | 'off'>({
         label: 'Brush',
         value: brush.get().tool ?? 'off',
-        options: [{ value: 'off', label: 'Off' }, ...PAINT_KINDS.map((kind) => ({ value: kind, label: labels[kind] }))],
+        options: [{ value: 'off', label: 'Off' }, ...kinds.map((kind) => ({ value: kind, label: labels[kind] ?? kind }))],
         onChange: (value) => brush.update((b) => ({ ...b, tool: value === 'off' ? null : value })),
         wrap: true,
       }),
       slider({
         label: 'Brush size',
         value: brush.get().size,
-        min: 2,
-        max: 40,
+        min: BRUSH_SIZES[0],
+        max: BRUSH_SIZES[BRUSH_SIZES.length - 1],
         step: 1,
         format: (size) => `${Math.round(size)} mm`,
         onInput: (size) => brush.update((b) => ({ ...b, size })),
+        sync: (show) => subscriptions.push(brush.subscribe((b) => show(b.size))),
       }),
-      hint('Pick a kind of damage, then drag on the picture to paint it exactly where you want it.'),
+      hint(
+        'Pick a kind of damage, then drag on the picture to paint it exactly where you want it. ' +
+          '<kbd>[</kbd> and <kbd>]</kbd> change the brush size, and <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes a stroke.',
+      ),
       buttonRow(
         button('Undo stroke', () => store.set(undoStroke(store.get(), actions.page())), { className: 'secondary' }),
         button(

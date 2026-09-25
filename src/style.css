@@ -200,7 +200,8 @@ button[hidden] {
   font-size: 0.8rem;
 }
 
-.hint code {
+.hint code,
+.hint kbd {
   padding: 0 3px;
   font-size: 0.85em;
   background: var(--bg);

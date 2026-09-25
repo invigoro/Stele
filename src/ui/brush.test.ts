@@ -4,7 +4,7 @@ import { imageSize } from '../render/renderer';
 import { buildScene } from '../scene';
 import { defaultSettings } from '../settings';
 import type { Measure } from '../text/layout';
-import { canvasToObject, clearStrokes, shownPxPerMm, undoStroke, type View } from './brush';
+import { BRUSH_SIZES, canvasToObject, clearStrokes, shownPxPerMm, stepBrushSize, undoStroke, type View } from './brush';
 
 const mono: Measure = { width: (text) => [...text].length * 0.5, ascent: 0.7, descent: 0.3 };
 const seeds = { material: 1, hand: 2, damage: 3, fade: 4 };
@@ -43,5 +43,43 @@ describe('undo and clear', () => {
 
   it('clears one page and keeps the others', () => {
     expect(clearStrokes(settings, 1).strokes.map((s) => s.page)).toEqual([0, 0]);
+  });
+
+  it('skips strokes the medium can’t show', () => {
+    const moss: Stroke = { kind: 'growth', radius: 0.02, points: [[0.9, 0]], page: 0 };
+    const withMoss = { ...settings, strokes: [stroke(0, 0.1), moss] };
+    // Paper grows no moss, so undo takes the hole before it; stone shows the moss, so it goes first.
+    expect(undoStroke(withMoss, 0).strokes).toEqual([moss]);
+    expect(undoStroke({ ...withMoss, medium: 'sandstone' }, 0).strokes).toEqual([stroke(0, 0.1)]);
+    expect(undoStroke({ ...withMoss, strokes: [moss] }, 0).strokes).toEqual([moss]);
+  });
+});
+
+describe('stepBrushSize', () => {
+  it('steps through every size from smallest to largest and back', () => {
+    const up = [BRUSH_SIZES[0]];
+    while (up.at(-1)! < BRUSH_SIZES.at(-1)!) up.push(stepBrushSize(up.at(-1)!, 1));
+    expect(up).toEqual(BRUSH_SIZES);
+    const down = [BRUSH_SIZES.at(-1)!];
+    while (down.at(-1)! > BRUSH_SIZES[0]) down.push(stepBrushSize(down.at(-1)!, -1));
+    expect(down).toEqual([...BRUSH_SIZES].reverse());
+  });
+
+  it('takes finer steps for smaller brushes', () => {
+    expect(stepBrushSize(5, 1)).toBe(6);
+    expect(stepBrushSize(12, 1)).toBe(14);
+    expect(stepBrushSize(30, 1)).toBe(35);
+  });
+
+  it('stops at the ends', () => {
+    expect(stepBrushSize(2, -1)).toBe(2);
+    expect(stepBrushSize(40, 1)).toBe(40);
+  });
+
+  it('moves a size set with the slider onto the nearest step', () => {
+    expect(stepBrushSize(13, 1)).toBe(14);
+    expect(stepBrushSize(13, -1)).toBe(12);
+    expect(stepBrushSize(23, 1)).toBe(25);
+    expect(stepBrushSize(23, -1)).toBe(20);
   });
 });
