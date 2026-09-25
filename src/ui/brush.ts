@@ -162,7 +162,7 @@ export function attachBrush(options: {
  * stone, say, after switching to paper), since undoing those would appear to do nothing.
  */
 export function undoStroke(settings: Settings, page: number): Settings {
-  const shown = paintKinds(MEDIA[settings.medium].family);
+  const shown = paintKinds(MEDIA[settings.medium]);
   const index = settings.strokes.findLastIndex((stroke) => stroke.page === page && shown.includes(stroke.kind));
   if (index < 0) return settings;
   return { ...settings, strokes: settings.strokes.filter((_, i) => i !== index) };

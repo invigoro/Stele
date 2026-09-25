@@ -220,7 +220,7 @@ export function renderPanel(container: HTMLElement, store: Store<Settings>, acti
   ];
 
   const { brush } = actions;
-  const kinds = paintKinds(medium.family);
+  const kinds = paintKinds(medium);
   const labels = PAINT_LABELS[medium.family];
   // A brush this medium doesn't have (moss, after switching from stone to paper) turns off.
   const tool = brush.get().tool;

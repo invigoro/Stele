@@ -8,18 +8,19 @@ struct PaintedDamage {
   float stain;    // stains, rot and water
   float burn;
   float growth;   // moss
+  float blot;     // ink
 };
 
 // Painted damage at p. The lookup is displaced by noise, so brush strokes come out as
 // irregular blobs rather than the neat capsules the brush drew.
 PaintedDamage paintAt(vec2 p) {
-  if (u_hasPaint < 0.5) return PaintedDamage(0.0, 0.0, 0.0, 0.0, 0.0);
+  if (u_hasPaint < 0.5) return PaintedDamage(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
   vec2 warp = 3.0 * vec2(fbm(p / 10.0 + u_damageSeed * 1.7, 3), fbm(p / 10.0 + u_damageSeed * 2.9 + 5.0, 3))
             + 0.8 * vec2(snoise(p / 2.5 + u_damageSeed), snoise(p / 2.5 + u_damageSeed + 9.0)) * detail(0.6);
   vec2 uv = textUv(p + warp);
   vec3 first = textureLod(u_paint, uv, 0.0).rgb;
-  vec2 second = textureLod(u_paint2, uv, 0.0).rg;
-  return PaintedDamage(first.r, first.g, first.b, second.r, second.g);
+  vec3 second = textureLod(u_paint2, uv, 0.0).rgb;
+  return PaintedDamage(first.r, first.g, first.b, second.r, second.g, second.b);
 }
 
 // A ragged-edged version of a soft painted mask, for damage with a definite edge (holes,

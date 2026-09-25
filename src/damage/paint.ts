@@ -1,24 +1,31 @@
-import type { Family } from '../media/media';
+import type { Family, MediumDef } from '../media/media';
 import type { Raster } from '../text/rasterize';
+import type { DamageId } from './types';
 
 /**
  * Damage painted by hand, in generic kinds that each medium interprets its own way (see
  * PAINT_LABELS), so strokes still make sense after switching medium. Not every medium
- * has every kind: only stone grows moss.
+ * has every kind: moss grows only on stone, and only ink blots.
  */
-export type PaintKind = 'break' | 'wear' | 'stain' | 'burn' | 'growth';
+export type PaintKind = 'break' | 'wear' | 'stain' | 'burn' | 'growth' | 'blot';
 
-export const PAINT_KINDS: readonly PaintKind[] = ['break', 'wear', 'stain', 'burn', 'growth'];
+export const PAINT_KINDS: readonly PaintKind[] = ['break', 'wear', 'stain', 'burn', 'growth', 'blot'];
 
 export const PAINT_LABELS: Record<Family, Partial<Record<PaintKind, string>>> = {
   stone: { break: 'Chip', wear: 'Wear away', stain: 'Stain', burn: 'Scorch', growth: 'Moss' },
   wood: { break: 'Gouge', wear: 'Wear away', stain: 'Rot', burn: 'Burn' },
-  sheet: { break: 'Hole', wear: 'Rub out', stain: 'Water', burn: 'Burn' },
+  sheet: { break: 'Hole', wear: 'Rub out', stain: 'Water', burn: 'Burn', blot: 'Ink blot' },
 };
 
-/** The kinds of damage that can be painted onto a family of media, in the order offered. */
-export function paintKinds(family: Family): PaintKind[] {
-  return PAINT_KINDS.filter((kind) => PAINT_LABELS[family][kind] !== undefined);
+/** Kinds offered only on media with the matching damage type. */
+const NEEDS: Partial<Record<PaintKind, DamageId>> = { growth: 'lichen', blot: 'blots' };
+
+/** The kinds of damage that can be painted onto a medium, in the order offered. */
+export function paintKinds(medium: Pick<MediumDef, 'family' | 'damage'>): PaintKind[] {
+  return PAINT_KINDS.filter((kind) => {
+    const needs = NEEDS[kind];
+    return PAINT_LABELS[medium.family][kind] !== undefined && (!needs || needs in medium.damage);
+  });
 }
 
 /**
@@ -70,6 +77,7 @@ const CHANNELS: Record<PaintKind, { mask: 0 | 1; color: string }> = {
   stain: { mask: 0, color: '#00f' },
   burn: { mask: 1, color: '#f00' },
   growth: { mask: 1, color: '#0f0' },
+  blot: { mask: 1, color: '#00f' },
 };
 
 /**

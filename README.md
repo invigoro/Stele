@@ -20,7 +20,7 @@ to share with players or print, where damage and fading make it harder for playe
 - **Decide what players can read:** wrap words in `[[double brackets]]` to guarantee they're
   destroyed, or in `{{double braces}}` to keep damage off them.
 - **Paint damage by hand:** pick a brush (chip, wear away, stain, scorch or moss on stone; hole,
-  rub out, water or burn on paper…) and drag on the picture. `[` and `]` change the brush size, and
+  rub out, water, burn or ink blot on paper…) and drag on the picture. `[` and `]` change the brush size, and
   Ctrl+Z undoes a stroke.
 - **Write long letters:** on paper, parchment and papyrus, text that doesn't fit continues onto
   more pages (or shrinks to fit, if you prefer). A line with just `---` starts a new page.

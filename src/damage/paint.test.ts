@@ -32,19 +32,21 @@ describe('extendStroke', () => {
 });
 
 describe('paint kinds', () => {
-  it('offers the four common kinds on every family of media, in order', () => {
-    for (const family of Object.keys(PAINT_LABELS) as (keyof typeof PAINT_LABELS)[]) {
-      expect(paintKinds(family).slice(0, 4)).toEqual(['break', 'wear', 'stain', 'burn']);
-      for (const kind of paintKinds(family)) expect(PAINT_LABELS[family][kind]).toBeTruthy();
+  it('offers the four common kinds on every medium, in order, each with a label', () => {
+    for (const medium of Object.values(MEDIA)) {
+      expect(paintKinds(medium).slice(0, 4)).toEqual(['break', 'wear', 'stain', 'burn']);
+      for (const kind of paintKinds(medium)) expect(PAINT_LABELS[medium.family][kind]).toBeTruthy();
     }
-    expect(PAINT_KINDS).toEqual(paintKinds('stone'));
+    expect(new Set(Object.values(MEDIA).flatMap((medium) => paintKinds(medium)))).toEqual(new Set(PAINT_KINDS));
   });
 
-  it('offers moss on exactly the media that grow lichen and moss', () => {
+  it('offers moss where lichen and moss grow, and ink blots where there are blots', () => {
     for (const medium of Object.values(MEDIA)) {
-      expect(paintKinds(medium.family).includes('growth'), medium.label).toBe('lichen' in medium.damage);
+      expect(paintKinds(medium).includes('growth'), medium.label).toBe('lichen' in medium.damage);
+      expect(paintKinds(medium).includes('blot'), medium.label).toBe('blots' in medium.damage);
     }
     expect(PAINT_LABELS.stone.growth).toBe('Moss');
+    expect(PAINT_LABELS.sheet.blot).toBe('Ink blot');
   });
 
   it('rounds coordinates for compact links', () => {

@@ -105,7 +105,7 @@ void buildSurface(vec2 p, inout Surface s) {
   ink *= 1.0 - 0.92 * rubbed;
   s.albedo = mix(s.albedo, min(s.albedo * 1.02 + 0.005, vec3(1.0)), 0.3 * rubbed);
   // A blot is one even pool of ink: nothing written underneath shows through it.
-  ink = mix(ink, 0.96, blotsAt(p));
+  ink = mix(ink, 0.96, max(blotsAt(p), paintedBlotAt(p, painted.blot)));
   // Dissolved ink spreads browner than it dried.
   vec3 tone = mix(inkColor(), vec3(0.42, 0.33, 0.26), 0.6 * water.wet);
   s.albedo = mix(s.albedo, s.albedo * tone, ink);

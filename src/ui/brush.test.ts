@@ -46,6 +46,8 @@ describe('undo and clear', () => {
   });
 
   it('skips strokes the medium can’t show', () => {
+    const ink: Stroke = { kind: 'blot', radius: 0.02, points: [[0.8, 0]], page: 0 };
+    expect(undoStroke({ ...settings, medium: 'marble', strokes: [stroke(0, 0.1), ink] }, 0).strokes).toEqual([ink]);
     const moss: Stroke = { kind: 'growth', radius: 0.02, points: [[0.9, 0]], page: 0 };
     const withMoss = { ...settings, strokes: [stroke(0, 0.1), moss] };
     // Paper grows no moss, so undo takes the hole before it; stone shows the moss, so it goes first.

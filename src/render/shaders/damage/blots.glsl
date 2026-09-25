@@ -3,6 +3,21 @@
 // the pen are round and splash out in points; blots over words marked [[like this]] are
 // squarish, to cover the word.
 
+// Ink blotted on by hand (`painted` is the brush's soft coverage): a pool with a crisp,
+// gently lobed edge, and a few droplets flicked out past it.
+float paintedBlotAt(vec2 p, float painted) {
+  if (painted <= 0.0) return 0.0;
+  // The brush's coverage falls from 1 to 0 over about 5 mm, so (coverage - 0.5) * 3 is
+  // roughly mm from the edge.
+  float edge = (painted - 0.5 + 0.12 * fbm(p / 4.0 + u_damageSeed * 2.3, 3)) * 3.0;
+  float body = clamp(edge * u_pxPerMm + 0.5, 0.0, 1.0);
+  vec3 drop = worley(p / 1.2 + u_damageSeed * 3.3);
+  float fringe = smoothstep(0.02, 0.2, painted) * (1.0 - smoothstep(0.35, 0.5, painted));
+  float size = 0.28 * drop.y * step(0.7, drop.z) * fringe; // in cells of 1.2 mm
+  float droplet = clamp((size - drop.x) * 1.2 * u_pxPerMm + 0.5, 0.0, 1.0) * step(0.01, size);
+  return max(body, droplet);
+}
+
 // Ink coverage from blots at p, 0..1.
 float blotsAt(vec2 p) {
   float ink = 0.0;
