@@ -24,6 +24,12 @@ export interface Fold {
   seed: number;
 }
 
+/**
+ * Shapes of blot: round, as one dropped from a pen lands; squarish, to cover a word
+ * marked [[like this]]; or a bar of marker drawn along the line to redact it.
+ */
+export type BlotShape = 'round' | 'word' | 'bar';
+
 /** An ink blot, sizes in mm: dropped from the pen, or over a word marked [[like this]]. */
 export interface Blot {
   x: number;
@@ -32,8 +38,7 @@ export interface Blot {
   ry: number;
   /** Radians. */
   angle: number;
-  /** Round, as a dropped blot lands, rather than squarish to cover a word. */
-  round: boolean;
+  shape: BlotShape;
   /** 0–1: how many droplets splashed out around it, and how far. */
   spatter: number;
   seed: number;
@@ -177,7 +182,7 @@ export function generateBlots(
       rx: radius * stretch,
       ry: radius / stretch,
       angle: random() * Math.PI,
-      round: true,
+      shape: 'round',
       spatter: 0.2 + 0.8 * random(),
       seed: random() * 100,
     };

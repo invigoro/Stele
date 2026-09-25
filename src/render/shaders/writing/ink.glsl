@@ -1,5 +1,7 @@
 // Pen ink, drawn from the text distance field. Fading thins strokes and wears the
-// ink away in patches; water makes it spread and run down the page.
+// ink away in patches; water makes it spread and run down the page. Typewritten ink
+// (u_typed) has no wobble or pen pressure: heavy strikes print bolder, and the ribbon
+// leaves the letters speckled, with edges softened where the ink soaked in.
 
 // The ink's colour now: fresh, shifting toward its aged colour as it fades (iron-gall
 // ink browns; carbon ink stays black but greys as it wears).
@@ -18,18 +20,22 @@ vec2 handWobble(vec2 p) {
 // `wet` (0..1) is how soaked the sheet got.
 float inkAmount(vec2 p, float wet) {
   if (u_textSize <= 0.0) return 0.0;
-  vec2 w = p + handWobble(p);
+  vec2 w = p + handWobble(p) * (1.0 - u_typed);
   float px = 1.0 / u_pxPerMm;
   float patchy = 0.5 + 0.5 * fbm(p / 30.0 + u_fadeSeed, 3);
   float wear = clamp(u_fade * (0.3 + 0.9 * patchy), 0.0, 1.0);
 
   // Pen pressure: strokes swell and thin along their length, as a nib's line does.
-  float pressure = 0.012 * u_textSize * snoise(p / (0.9 * max(u_textSize, 1.0)) + u_materialSeed * 3.0);
+  float pressure = 0.012 * u_textSize * snoise(p / (0.9 * max(u_textSize, 1.0)) + u_materialSeed * 3.0) * (1.0 - u_typed);
+  float strike = u_typed * 0.02 * u_textSize * (inkDensity(w) - 0.8);
   // Dry ink: crisp edges, a little darker along them where it pooled.
-  float d = textDistance(w) + pressure - wear * 0.035 * u_textSize;
-  float dry = smoothstep(-0.6 * px, 0.6 * px, d);
+  float d = textDistance(w) + pressure + strike - wear * 0.035 * u_textSize;
+  float soft = 0.6 * px + 0.03 * u_typed;
+  float dry = smoothstep(-soft, soft, d);
   float pooled = 1.0 + 0.2 * (1.0 - smoothstep(0.0, 0.06 * u_textSize + px, d));
   float density = inkDensity(w) * pooled;
+  float ribbon = smoothstep(0.35, 0.85, 0.5 + 0.5 * snoise(p * 3.2 + u_materialSeed * 7.0));
+  density *= 1.0 - u_typed * 0.3 * ribbon * detail(0.3);
 
   // Wet ink: feathered, diluted, and smeared downward from where it was written, in
   // drips of varying length. Sample offsets are dithered per pixel so the smear is

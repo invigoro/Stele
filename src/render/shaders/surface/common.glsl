@@ -52,6 +52,7 @@ uniform float u_fill;        // 1 when the grooves are filled with u_writingColo
 uniform float u_gilt;        // 1 when that fill is gold leaf
 uniform vec3 u_writingColor; // sRGB paint, gold or ink
 uniform vec3 u_writingAged;  // sRGB colour of ink once aged
+uniform float u_typed;       // 1 when the ink was struck through a typewriter ribbon
 
 // Shape (see lib/shapes.glsl).
 uniform int u_shape;

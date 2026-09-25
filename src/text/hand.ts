@@ -16,6 +16,13 @@ export interface Hand {
   lineSlope: number;
   /** Simulate a dip pen: ink thins over a few words, then goes dark after a re-dip. */
   dipPen: boolean;
+  /** Typewriter: how much the force of each keystroke varies, 0–1. Light strikes print paler, and unevenly. */
+  strike?: number;
+  /**
+   * Typewriter: how far some keys' typebars are out of true, as a fraction of the font
+   * size. A bent key prints the same way every time it's struck.
+   */
+  typebars?: number;
 }
 
 /** One piece of text to draw: a single letter, or a whole word for joined scripts. */
@@ -32,6 +39,8 @@ export interface Run {
   /** Which characters of the laid-out text this run draws (UTF-16 offset and length). */
   source: number;
   length: number;
+  /** Typewriter: the key struck unevenly, printing paler toward `angle` (radians) by `amount` (0–1). */
+  shade?: { angle: number; amount: number };
 }
 
 export interface Drawing {
@@ -64,8 +73,21 @@ function splitWords(line: string): Word[] {
   return words;
 }
 
-/** Positions every letter (or word) of a layout, with the irregularity of `hand`. */
-export function drawText(layout: TextLayout, measure: Measure, hand: Hand, seed: number): Drawing {
+/**
+ * How one key of a typewriter prints: whether its typebar is bent, and which way. It
+ * depends only on the key and the machine (`seed`), so the key misprints consistently.
+ */
+function typebar(char: string, seed: number): { dx: number; dy: number; turn: number } | null {
+  const random = mulberry32((seed ^ Math.imul(char.codePointAt(0) ?? 0, 0x9e3779b1)) >>> 0);
+  if (random() > 0.3) return null; // most keys are true
+  return { dx: random() * 2 - 1, dy: random() * 2 - 1, turn: (random() * 2 - 1) * 1.5 * DEGREES };
+}
+
+/**
+ * Positions every letter (or word) of a layout, with the irregularity of `hand`.
+ * `machineSeed` picks a typewriter's bent keys; it stays the same across pages.
+ */
+export function drawText(layout: TextLayout, measure: Measure, hand: Hand, seed: number, machineSeed = seed): Drawing {
   const random = mulberry32(seed);
   const jitter = (amount: number) => (random() * 2 - 1) * amount;
   const { size, letterSpacing } = layout;
@@ -82,7 +104,7 @@ export function drawText(layout: TextLayout, measure: Measure, hand: Hand, seed:
     const slope = Math.tan(jitter(hand.lineSlope) * DEGREES);
     const place = (text: string, index: number, density: number) => {
       const x = line.x + offset(chars, index) + jitter(hand.spacing) * size;
-      runs.push({
+      const run: Run = {
         text,
         x,
         y: line.baseline + (x - line.x) * slope + jitter(hand.baseline) * size,
@@ -91,7 +113,22 @@ export function drawText(layout: TextLayout, measure: Measure, hand: Hand, seed:
         density,
         source: line.start + chars.slice(0, index).join('').length,
         length: text.length,
-      });
+      };
+      if (hand.typebars) {
+        const bent = typebar(text, machineSeed);
+        if (bent) {
+          run.x += bent.dx * hand.typebars * size;
+          run.y += bent.dy * hand.typebars * size;
+          run.rotation += bent.turn;
+        }
+      }
+      if (hand.strike) {
+        // Most keystrokes are firm; now and then one is light, and prints lopsided.
+        const force = random() ** 2;
+        run.density = 1 - hand.strike * force;
+        run.shade = { angle: random() * 2 * Math.PI, amount: force * (0.2 + 0.3 * random()) };
+      }
+      runs.push(run);
     };
 
     for (const word of splitWords(line.text)) {

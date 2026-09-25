@@ -1,7 +1,8 @@
-// Ink blots, read from the features texture (BLOT_ROW: x, y, rx, ry; +1: seed, round,
+// Ink blots, read from the features texture (BLOT_ROW: x, y, rx, ry; +1: seed, shape,
 // spatter, angle): a pool of ink with droplets thrown out around it. Blots dropped from
-// the pen are round and splash out in points; blots over words marked [[like this]] are
-// squarish, to cover the word.
+// the pen are round (shape 1) and splash out in points; blots over words marked
+// [[like this]] are squarish (0), to cover the word; and redaction bars (2) are strokes
+// of marker along the line.
 
 // Ink blotted on by hand (`painted` is the brush's soft coverage): a pool with a crisp,
 // gently lobed edge, and a few droplets flicked out past it.
@@ -26,12 +27,21 @@ float blotsAt(vec2 p) {
     vec4 blot = texelFetch(u_features, ivec2(i, BLOT_ROW), 0);
     vec4 more = texelFetch(u_features, ivec2(i, BLOT_ROW + 1), 0);
     float seed = more.x;
-    float roundness = more.y;
+    float roundness = step(0.5, more.y);
     float spatter = more.z;
     vec2 d = p - blot.xy;
     float c = cos(more.w);
     float s = sin(more.w);
-    vec2 q = vec2(c * d.x + s * d.y, -s * d.x + c * d.y) / blot.zw;
+    vec2 local = vec2(c * d.x + s * d.y, -s * d.x + c * d.y);
+    if (more.y > 1.5) {
+      // A bar of marker: rounded ends, and edges that waver a little.
+      if (any(greaterThan(abs(local), blot.zw + 1.0))) continue;
+      float waver = 0.1 * snoise(vec2(local.x / 1.5, sign(local.y) * 3.0) + seed);
+      float bar = waver - sdRoundedBox(local, blot.zw, 0.35 * blot.w);
+      ink = max(ink, clamp(bar * u_pxPerMm + 0.5, 0.0, 1.0));
+      continue;
+    }
+    vec2 q = local / blot.zw;
     // Round, or a rounded rectangle (superellipse) that covers the corners of a word.
     vec2 q2 = q * q;
     float r = mix(sqrt(sqrt(q2.x * q2.x + q2.y * q2.y)), length(q), roundness);

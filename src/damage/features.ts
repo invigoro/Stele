@@ -1,4 +1,8 @@
 import type { Features } from '../scene';
+import type { BlotShape } from './sheetDamage';
+
+/** Blot shape codes, as damage/blots.glsl reads them. */
+const BLOT_SHAPES: Record<BlotShape, number> = { word: 0, round: 1, bar: 2 };
 
 /** Most features of one kind the shaders read (MAX_FEATURES in the GLSL). */
 export const MAX_FEATURES = 64;
@@ -37,7 +41,7 @@ const encoders: { [K in keyof Features]: (feature: Features[K][number]) => numbe
   folds: (f) => [f.ax, f.ay, f.bx, f.by, f.seed, f.strength, 0, 0],
   smudges: (s) => [s.x, s.y, s.radius, s.angle, s.seed, s.strength, s.length, 0],
   cuts: (c) => [c.ax, c.ay, c.bx, c.by, c.seed, 0, 0, 0],
-  blots: (b) => [b.x, b.y, b.rx, b.ry, b.seed, b.round ? 1 : 0, b.spatter, b.angle],
+  blots: (b) => [b.x, b.y, b.rx, b.ry, b.seed, BLOT_SHAPES[b.shape], b.spatter, b.angle],
 };
 
 /** Lays damage features out as texels for the surface shaders (see damage/*.glsl). */

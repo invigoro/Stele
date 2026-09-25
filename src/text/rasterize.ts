@@ -11,10 +11,17 @@ export interface Raster {
 
 /**
  * Draws text into `canvas` for the renderer. Red is letter coverage. Green is ink
- * density, filled in a padded box around each run, so ink that spreads or runs
- * outside the letters still knows how dark it is.
+ * density, filled in a box around each run, padded by `pad` times the font size, so
+ * ink that spreads or runs outside the letters still knows how dark it is. (Type needs
+ * less, and its boxes mustn't spill into the next letter's.)
  */
-export function rasterizeText(drawing: Drawing, font: FontDef, raster: Raster, canvas: HTMLCanvasElement): void {
+export function rasterizeText(
+  drawing: Drawing,
+  font: FontDef,
+  raster: Raster,
+  canvas: HTMLCanvasElement,
+  pad = 0.4,
+): void {
   canvas.width = raster.width;
   canvas.height = raster.height;
   const ctx = canvas.getContext('2d');
@@ -30,13 +37,25 @@ export function rasterizeText(drawing: Drawing, font: FontDef, raster: Raster, c
   ];
   ctx.font = cssFont(font, sizePx);
 
-  const pad = 0.4 * sizePx;
+  const padPx = pad * sizePx;
   for (const run of drawing.runs) {
     const [x, y] = toPx(run.x, run.y);
     const width = ctx.measureText(run.text).width * run.scale;
-    const green = Math.round(Math.min(1, Math.max(0, run.density)) * 255);
-    ctx.fillStyle = `rgb(0, ${green}, 0)`;
-    ctx.fillRect(x - pad, y - 1.2 * sizePx - pad, width + 2 * pad, 1.6 * sizePx + 2 * pad);
+    const density = Math.min(1, Math.max(0, run.density));
+    const green = (fraction: number) => `rgb(0, ${Math.round(density * fraction * 255)}, 0)`;
+    if (run.shade) {
+      // A lopsided strike: paler toward one side of the letter.
+      const reach = 0.5 * sizePx;
+      const [cx, cy] = [x + width / 2, y - 0.35 * sizePx];
+      const [dx, dy] = [Math.cos(run.shade.angle) * reach, Math.sin(run.shade.angle) * reach];
+      const gradient = ctx.createLinearGradient(cx - dx, cy - dy, cx + dx, cy + dy);
+      gradient.addColorStop(0, green(1));
+      gradient.addColorStop(1, green(1 - run.shade.amount));
+      ctx.fillStyle = gradient;
+    } else {
+      ctx.fillStyle = green(1);
+    }
+    ctx.fillRect(x - padPx, y - 1.2 * sizePx - padPx, width + 2 * padPx, 1.6 * sizePx + 2 * padPx);
   }
 
   // Letters in pure red, added on top so the green channel is left alone.

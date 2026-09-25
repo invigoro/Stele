@@ -105,9 +105,10 @@ export class SceneRenderer {
     const originMm: [number, number] = [-scene.margin, -scene.margin];
     const raster = { originMm, pxPerMm, width, height };
 
-    const maskKey = JSON.stringify([scene.font.family, scene.drawing, width, height, pxPerMm]);
+    const typed = scene.method.typed ?? false;
+    const maskKey = JSON.stringify([scene.font.family, scene.drawing, typed, width, height, pxPerMm]);
     if (maskKey !== this.keys.mask || !this.mask) {
-      rasterizeText(scene.drawing, scene.font, raster, this.canvas);
+      rasterizeText(scene.drawing, scene.font, raster, this.canvas, typed ? 0.08 : 0.4);
       this.mask = uploadCanvas(gl, this.mask, this.canvas);
       this.distanceField.compute(this.mask, targets.distance, 1 / pxPerMm);
       this.keys.mask = maskKey;
@@ -166,6 +167,7 @@ export class SceneRenderer {
       u_gilt: method.gilt ? 1 : 0,
       u_writingColor: color,
       u_writingAged: method.aged ?? color,
+      u_typed: typed ? 1 : 0,
       u_shape: SHAPES[scene.shape].code,
       u_shapeParams: shapeParams(scene.shape, scene.width, scene.height),
       u_textDistance: targets.distance.texture,

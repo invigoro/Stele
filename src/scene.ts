@@ -136,10 +136,11 @@ export function buildScenes(settings: Settings, measure: Measure): Scene[] {
     lineHeight: font.lineHeight,
     letterSpacing: font.letterSpacing,
     scale: settings.textScale,
-    maxSize: medium.maxTextSize * scale,
+    maxSize: Math.min(medium.maxTextSize, method.maxTextSize ?? Infinity) * scale,
   };
   const { pages, size } = paginate(text, settings.pages, layoutOptions, measure);
-  const hand = { ...medium.hand, perGlyph: medium.hand.perGlyph && !font.connected };
+  const baseHand = method.hand ?? medium.hand;
+  const hand = { ...baseHand, perGlyph: baseHand.perGlyph && !font.connected };
   const amounts = damageAmounts(settings.damage, settings.damageMix);
   const amount = (id: DamageId) => (id in medium.damage ? (amounts[id] ?? 0) : 0);
   const { grain, thickness } = medium;
@@ -153,7 +154,7 @@ export function buildScenes(settings: Settings, measure: Measure): Scene[] {
     };
     // Every page shares one text size, already scaled by the Size slider.
     const layout = layoutText({ ...layoutOptions, text: pageText.text, scale: 1, maxSize: size }, measure);
-    const drawing = drawText(layout, measure, hand, seeds.hand);
+    const drawing = drawText(layout, measure, hand, seeds.hand, settings.seeds.hand);
     const pageEnd = pageText.start + pageText.text.length;
     const pageSpans = spans
       .filter((span) => span.end > pageText.start && span.start < pageEnd)
@@ -190,7 +191,7 @@ export function buildScenes(settings: Settings, measure: Measure): Scene[] {
 
     // Keep random damage off protected words, then make sure marked ones are destroyed.
     const { features, cracks } = protectAreas(random, randomCracks, marks.protect, [width / 2, height / 2]);
-    const destroyed = obliterate(marks.destroy, medium.obliterate, drawing.size);
+    const destroyed = obliterate(marks.destroy, method.obliterate ?? medium.obliterate, drawing.size);
     features.chips.push(...destroyed.chips);
     features.blots.push(...destroyed.blots);
     features.holes.push(...destroyed.holes);

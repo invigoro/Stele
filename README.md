@@ -10,8 +10,8 @@ to share with players or print, where damage and fading make it harder for playe
 
 - **Pick a medium:** marble, sandstone, granite, slate, a bronze plaque, wood, paper, parchment or
   papyrus. Each has colour variants, shapes (a Roman tabula ansata, a round-topped stele, a broken
-  fragment, a torn sheet…) and writing methods (carved, gilded, painted, burned, inked, cast in
-  relief, engraved).
+  fragment, a torn sheet…) and writing methods (carved, gilded, painted, burned, inked, typed, cast
+  in relief, engraved).
 - **Type the text,** choose a style (Roman capitals, blackletter, copperplate, handwriting,
   typewriter, runes…), and add wear:
   - **Damage** scales everything the medium can suffer; "Damage types" adjusts each one (chips,
@@ -19,7 +19,8 @@ to share with players or print, where damage and fading make it harder for playe
   - **Fade** wears the writing itself away: carving grows shallow, ink thins and browns.
   - 🎲 rerolls where the damage or fading falls.
 - **Decide what players can read:** wrap words in `[[double brackets]]` to guarantee they're
-  destroyed, or in `{{double braces}}` to keep damage off them.
+  destroyed (typed pages get them blacked out), or in `{{double braces}}` to keep damage off
+  them.
 - **Paint damage by hand:** pick a brush (chip, wear away, stain, scorch or moss on stone; hole,
   rub out, water, burn or ink blot on paper…) and drag on the picture. `[` and `]` change the brush size, and
   Ctrl+Z undoes a stroke.

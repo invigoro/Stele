@@ -4,7 +4,7 @@ import { MEDIA, type MediumDef, type MediumId } from '../media/media';
 import { SHAPES, type ShapeId } from '../media/shapes';
 import { METHODS, type MethodId } from '../media/writing';
 import { applyPreset, PRESETS } from '../presets';
-import { changeMedium, type Seeds, type Settings } from '../settings';
+import { changeMedium, changeMethod, type Seeds, type Settings } from '../settings';
 import { FONTS, type FontId } from '../text/fonts';
 import type { Align } from '../text/layout';
 import type { PageMode } from '../text/pages';
@@ -153,7 +153,11 @@ export function renderPanel(container: HTMLElement, store: Store<Settings>, acti
         label: 'Made by',
         value: settings.method,
         options: medium.methods.map((method) => ({ value: method, label: METHODS[method].label })),
-        onChange: (method) => change({ method }),
+        onChange: (method) => {
+          const before = store.get();
+          store.set(changeMethod(before, method));
+          if (store.get().font !== before.font) rebuild(); // show the typeface it switched to
+        },
       }),
       slider({
         label: 'Size',

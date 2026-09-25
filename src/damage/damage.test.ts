@@ -162,7 +162,7 @@ describe('sheet damage', () => {
     const onWriting = many.filter((b) => written.some(([x, y]) => x === b.x && y === b.y));
     expect(onWriting.length / many.length).toBeGreaterThan(0.5);
     for (const blot of many) {
-      expect(blot.round).toBe(true);
+      expect(blot.shape).toBe('round');
       expect(blot.spatter).toBeGreaterThanOrEqual(0.2);
       expect(blot.spatter).toBeLessThanOrEqual(1);
       expect(blot.x).toBeGreaterThanOrEqual(area.x);
@@ -219,7 +219,7 @@ describe('packFeatures', () => {
   });
 
   it('packs a blot’s shape, spatter and angle', () => {
-    const blot = { x: 1, y: 2, rx: 3, ry: 4, angle: 0.5, round: true, spatter: 0.75, seed: 6 };
+    const blot = { x: 1, y: 2, rx: 3, ry: 4, angle: 0.5, shape: 'round' as const, spatter: 0.75, seed: 6 };
     const packed = packFeatures({ ...empty, blots: [blot] });
     const at = (row: number) => Array.from(packed.data.slice(row * MAX_FEATURES * 4, row * MAX_FEATURES * 4 + 4));
     expect(at(FEATURE_LAYOUT.blots)).toEqual([1, 2, 3, 4]);

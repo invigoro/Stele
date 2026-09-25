@@ -1,6 +1,8 @@
 import cedarvilleLatin from '@fontsource/cedarville-cursive/files/cedarville-cursive-latin-400-normal.woff2?url';
 import cinzelLatin from '@fontsource/cinzel/files/cinzel-latin-500-normal.woff2?url';
 import cinzelLatinExt from '@fontsource/cinzel/files/cinzel-latin-ext-500-normal.woff2?url';
+import courierLatin from '@fontsource/courier-prime/files/courier-prime-latin-400-normal.woff2?url';
+import courierLatinExt from '@fontsource/courier-prime/files/courier-prime-latin-ext-400-normal.woff2?url';
 import homemadeAppleLatin from '@fontsource/homemade-apple/files/homemade-apple-latin-400-normal.woff2?url';
 import imFellLatin from '@fontsource/im-fell-english/files/im-fell-english-latin-400-normal.woff2?url';
 import marcellusLatin from '@fontsource/marcellus/files/marcellus-latin-400-normal.woff2?url';
@@ -137,7 +139,7 @@ export const FONTS = {
     lineHeight: 1.55,
   },
   'special-elite': {
-    label: 'Special Elite · typewriter',
+    label: 'Special Elite · worn typewriter',
     family: 'Stele Special Elite',
     weight: '400',
     files: [
@@ -147,6 +149,18 @@ export const FONTS = {
     connected: false,
     letterSpacing: 0,
     lineHeight: 1.45,
+  },
+  'courier-prime': {
+    label: 'Courier Prime · typewriter',
+    family: 'Stele Courier Prime',
+    weight: '400',
+    files: [
+      { url: courierLatin, unicodeRange: LATIN },
+      { url: courierLatinExt, unicodeRange: LATIN_EXT },
+    ],
+    connected: false,
+    letterSpacing: 0,
+    lineHeight: 1.3,
   },
   'noto-sans-runic': {
     label: 'Noto Sans Runic · runes (paste runic letters)',

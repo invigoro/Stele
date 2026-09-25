@@ -74,3 +74,46 @@ describe('drawText', () => {
     expect(densities.slice(1).filter((d) => d === 1).length).toBeGreaterThan(0);
   });
 });
+
+describe('typewriter', () => {
+  const page: TextLayout = {
+    size: 4,
+    letterSpacing: 0,
+    lines: [{ text: 'the cat ate the eel and then the rest', start: 0, x: 0, baseline: 10, width: 0 }],
+  };
+  const machine: Hand = { ...steady, strike: 0.45, typebars: 0.06 };
+  // With no other jitter, a letter lands 2 mm per character along the line, unless its key is bent.
+  const misprint = (runs: ReturnType<typeof drawText>['runs']) =>
+    runs.map((run) => [run.text, +(run.x - 2 * run.source).toFixed(9), +(run.y - 10).toFixed(9), +run.rotation.toFixed(9)] as const);
+
+  it('prints each key the same way every time', () => {
+    const prints = misprint(drawText(page, mono, machine, 5).runs);
+    for (const [key] of prints) {
+      expect(new Set(prints.filter((p) => p[0] === key).map((p) => p.join()))).toHaveProperty('size', 1);
+    }
+    // Some keys are out of true, most aren't.
+    const bent = new Set(prints.filter((p) => p[2] !== 0).map((p) => p[0]));
+    const keys = new Set(prints.map((p) => p[0]));
+    expect(bent.size).toBeGreaterThan(0);
+    expect(bent.size).toBeLessThan(keys.size);
+  });
+
+  it('bends the same keys on every page, and other keys on another machine', () => {
+    const first = misprint(drawText(page, mono, machine, 5, 77).runs);
+    expect(misprint(drawText(page, mono, machine, 6, 77).runs)).toEqual(first);
+    expect(misprint(drawText(page, mono, machine, 5, 78).runs)).not.toEqual(first);
+  });
+
+  it('strikes each key with its own force, now and then lopsided', () => {
+    const runs = drawText(page, mono, machine, 5).runs;
+    const densities = runs.map((run) => run.density);
+    expect(Math.min(...densities)).toBeGreaterThanOrEqual(1 - 0.45);
+    expect(Math.max(...densities)).toBeLessThanOrEqual(1);
+    expect(new Set(densities).size).toBeGreaterThan(5);
+    for (const run of runs) expect(run.shade!.amount).toBeLessThanOrEqual(0.5);
+  });
+
+  it('leaves pen hands alone', () => {
+    for (const run of drawText(layout, mono, steady, 3).runs) expect(run.shade).toBeUndefined();
+  });
+});

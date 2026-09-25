@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { MEDIA, type MediumId } from './media/media';
 import { textBox } from './media/shapes';
 import { buildScene, buildScenes } from './scene';
-import { changeMedium, defaultSettings, type Seeds } from './settings';
+import { changeMedium, changeMethod, defaultSettings, type Seeds } from './settings';
 import type { Measure } from './text/layout';
 
 const mono: Measure = { width: (text) => [...text].length * 0.5, ascent: 0.7, descent: 0.3 };
@@ -41,7 +41,7 @@ describe('buildScene', () => {
     for (const medium of ['paper', 'parchment', 'papyrus'] as const) {
       const blots = scene(medium).features.blots;
       expect(blots.length, medium).toBeGreaterThan(0);
-      expect(blots.every((blot) => blot.round)).toBe(true);
+      expect(blots.every((blot) => blot.shape === 'round')).toBe(true);
       expect(scene(medium, { damageMix: { ...MEDIA[medium].damage, blots: 0 } }).features.blots).toEqual([]);
     }
     expect(scene('marble').features.blots).toEqual([]);
@@ -128,6 +128,25 @@ describe('changeMedium', () => {
     expect(wood.method).toBe('gilt');
     expect(wood.damageMix).toEqual(MEDIA.wood.damage);
     expect(wood.light).toBeNull();
+  });
+});
+
+describe('changeMethod', () => {
+  it('brings a typewriter’s typeface along, and restores the medium’s when switching back', () => {
+    const letter = defaultSettings('paper', seeds);
+    const typed = changeMethod(letter, 'typewriter');
+    expect(typed.font).toBe('courier-prime');
+    expect(changeMethod(typed, 'iron-gall').font).toBe(letter.font);
+    // A typeface chosen since is kept.
+    expect(changeMethod({ ...typed, font: 'special-elite' }, 'carbon-ink').font).toBe('special-elite');
+    expect(changeMethod(letter, 'red-ink').font).toBe(letter.font);
+  });
+
+  it('types in pica, and redacts marked words with a bar', () => {
+    const typed = scene('paper', { method: 'typewriter', font: 'courier-prime', text: 'Meet at [[the old mill]] at dawn.', damage: 0 });
+    expect(typed.drawing.size).toBeLessThanOrEqual(4.2);
+    expect(typed.features.blots.map((blot) => blot.shape)).toEqual(['bar']);
+    expect(scene('paper', { text: 'Meet at [[the old mill]]', damage: 0 }).features.blots[0].shape).toBe('word');
   });
 });
 

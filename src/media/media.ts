@@ -265,7 +265,7 @@ export const MEDIA = {
       white: { label: 'White', palette: [[0.965, 0.96, 0.94], [0.88, 0.85, 0.78], [0.92, 0.89, 0.82], [0.76, 0.68, 0.56]] },
       aged: { label: 'Aged', palette: [[0.88, 0.8, 0.64], [0.72, 0.6, 0.42], [0.82, 0.72, 0.55], [0.62, 0.48, 0.32]] },
     },
-    methods: ['iron-gall', 'carbon-ink', 'red-ink'],
+    methods: ['iron-gall', 'carbon-ink', 'red-ink', 'typewriter'],
     shapes: ['sheet', 'torn'],
     damage: { water: 0.7, tears: 0.4, burns: 0.3, folds: 0.6, smudges: 0.35, blots: 0.3, foxing: 0.5 },
     obliterate: 'blot',

@@ -122,7 +122,7 @@ interface Settings {
 | Marble | V-cut (optionally filled with paint or gold) | chips, cracks, broken edges, staining/soot, lichen | grooves get shallower and rounder, thin strokes go first; fresh-cut contrast and paint wear away |
 | Sandstone | V- or U-cut | chips, flaking, honeycomb pitting, cracks, broken edges, moss | same, but coarser and patchier; the grain drowns out shallow cuts |
 | Wood | carved, painted, or burned | splits along the grain, gouges, burns, rot, worm and nail holes | carving softens and greys; paint flakes; burned letters lighten |
-| Paper | iron-gall ink | tears, burns, water damage (running ink + stain rings), smudges, ink blots, folds, stains, age spots | ink thins, breaks up and browns; worst along folds and edges |
+| Paper | iron-gall ink, or typed | tears, burns, water damage (running ink + stain rings), smudges, ink blots, folds, stains, age spots | ink thins, breaks up and browns; worst along folds and edges |
 | Papyrus | carbon ink | holes, breaks along the fibres, frayed edges, darkening, ink blots | ink flakes off in patches |
 | *Parchment* | ink | as paper, plus warping | as paper |
 | *Granite, Slate* | V-cut, gold-filled | as marble | granite's speckle hides letters; slate's pale fresh-cut letters dull to the surface color |
@@ -269,7 +269,7 @@ on paper, parchment and papyrus.
 
 **Backlog:**
 - media: clay and wax tablets, leather, chalk on slate
-- writing methods: pencil, typewriter, burned-in lettering
+- writing methods: pencil, burned-in lettering
 - extras: wax seals, a signature in a different hand
 - converting text to runes
 - a "photo mode" showing the object on a table

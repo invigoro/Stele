@@ -2,7 +2,7 @@ import type { Stroke } from './damage/paint';
 import type { DamageMix } from './damage/types';
 import { MEDIA, type MediumDef, type MediumId } from './media/media';
 import type { ShapeId } from './media/shapes';
-import type { MethodId } from './media/writing';
+import { METHODS, type MethodDef, type MethodId } from './media/writing';
 import type { FontId } from './text/fonts';
 import type { Align } from './text/layout';
 import type { PageMode } from './text/pages';
@@ -79,6 +79,20 @@ export function defaultSettings(medium: MediumId, seeds: Seeds = randomSeeds()):
     light: null,
     seeds,
   };
+}
+
+/**
+ * Switches writing method. A method with a typeface of its own (a typewriter's) brings
+ * it along, and switching away from it restores the medium's usual one, unless another
+ * typeface has been chosen since.
+ */
+export function changeMethod(settings: Settings, method: MethodId): Settings {
+  const before: MethodDef = METHODS[settings.method];
+  const after: MethodDef = METHODS[method];
+  let font = settings.font;
+  if (after.font) font = after.font;
+  else if (before.font && settings.font === before.font) font = MEDIA[settings.medium].font;
+  return { ...settings, method, font };
 }
 
 /**
