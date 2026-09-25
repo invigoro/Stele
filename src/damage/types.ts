@@ -16,6 +16,7 @@ export const DAMAGE_TYPES = {
   tears: 'Tears',
   folds: 'Folds',
   smudges: 'Smudges',
+  blots: 'Ink blots',
   foxing: 'Age spots',
   fraying: 'Frayed edges',
   darkening: 'Darkening',

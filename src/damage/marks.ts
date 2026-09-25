@@ -3,21 +3,12 @@ import type { Drawing } from '../text/hand';
 import type { Box, Measure } from '../text/layout';
 import type { Span } from '../text/markup';
 import type { Crack } from './cracks';
-import type { Cut } from './sheetDamage';
+import { blotReach, type Cut } from './sheetDamage';
 
 /** Areas the game master marked in the text, mm: one box per line a span covers. */
 export interface Marks {
   destroy: Box[];
   protect: Box[];
-}
-
-/** An ink blot over a word, sizes in mm. */
-export interface Blot {
-  x: number;
-  y: number;
-  rx: number;
-  ry: number;
-  seed: number;
 }
 
 /** How a medium obliterates a marked word. */
@@ -116,7 +107,7 @@ export function protectAreas(
       folds: features.folds.filter((f) => boxes.every((box) => !lineNear(f.ax, f.ay, f.bx, f.by, box, 3))),
       smudges: features.smudges.filter((s) => clear(s.x, s.y, s.radius + s.length)),
       cuts: features.cuts.filter((c) => boxes.every((box) => !cutReaches(c, box, center, 8))),
-      blots: features.blots,
+      blots: features.blots.filter((b) => clear(b.x, b.y, blotReach(b))),
     },
     cracks: cracks.filter((crack) => crack.points.every(([x, y]) => clear(x, y, 4))),
   };
@@ -154,7 +145,7 @@ export function obliterate(
         seed,
       });
     } else if (how === 'blot') {
-      result.blots.push({ x, y, rx: halfWidth * 1.1 + 1.5, ry: halfHeight * 1.15 + 1.5, seed });
+      result.blots.push({ x, y, rx: halfWidth * 1.1 + 1.5, ry: halfHeight * 1.15 + 1.5, angle: 0, round: false, spatter: 0.5, seed });
     } else {
       // An ellipse through the corners of the box is 1.41 times its half-size.
       result.holes.push({ x, y, rx: halfWidth * 1.42 + 1.5, ry: halfHeight * 1.42 + 1.5, angle: 0, seed });

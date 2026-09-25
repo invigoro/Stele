@@ -24,6 +24,26 @@ export interface Fold {
   seed: number;
 }
 
+/** An ink blot, sizes in mm: dropped from the pen, or over a word marked [[like this]]. */
+export interface Blot {
+  x: number;
+  y: number;
+  rx: number;
+  ry: number;
+  /** Radians. */
+  angle: number;
+  /** Round, as a dropped blot lands, rather than squarish to cover a word. */
+  round: boolean;
+  /** 0–1: how many droplets splashed out around it, and how far. */
+  spatter: number;
+  seed: number;
+}
+
+/** How far a blot's droplets can reach from its centre, mm (see blotsAt in damage/blots.glsl). */
+export function blotReach(blot: Blot): number {
+  return Math.max(blot.rx, blot.ry) * (1.45 + 1.1 * blot.spatter);
+}
+
 /** A smear of ink dragged across the writing, sizes in mm. */
 export interface Smudge {
   x: number;
@@ -127,6 +147,41 @@ export function generateFolds(amount: number, width: number, height: number, see
     folds.push({ ax: x0, ay: 0, bx: width * (0.5 + jitter()), by: height, strength, seed: random() * 100 });
   }
   return folds;
+}
+
+/**
+ * Ink blots dropped from an overloaded pen: most land on the writing (`written` holds
+ * points on it), the rest anywhere in `area`, each splashing droplets around it.
+ * `amount` (0–1) sets how many and how big.
+ */
+export function generateBlots(
+  amount: number,
+  area: { x: number; y: number; width: number; height: number },
+  written: readonly [number, number][],
+  seed: number,
+): Blot[] {
+  if (amount <= 0) return [];
+  const random = mulberry32(seed);
+  const count = 1 + Math.floor(amount * 3.99);
+  return Array.from({ length: count }, () => {
+    const onWriting = written.length > 0 && random() < 0.75;
+    const [x, y] = onWriting
+      ? written[Math.floor(random() * written.length)]
+      : [area.x + random() * area.width, area.y + random() * area.height];
+    // Mostly small drops, with the odd big one.
+    const radius = (1.2 + 4.8 * random() ** 2) * (0.6 + 0.8 * amount);
+    const stretch = 1 + 0.3 * random();
+    return {
+      x,
+      y,
+      rx: radius * stretch,
+      ry: radius / stretch,
+      angle: random() * Math.PI,
+      round: true,
+      spatter: 0.2 + 0.8 * random(),
+      seed: random() * 100,
+    };
+  });
 }
 
 /**

@@ -2,13 +2,15 @@ import { generateBurns, type Burn } from './damage/burns';
 import { generateBreaks, generateChips, type Chip } from './damage/chips';
 import { generateCracks, type Crack } from './damage/cracks';
 import { generateHoles, type Hole } from './damage/holes';
-import { markedAreas, obliterate, protectAreas, type Blot } from './damage/marks';
+import { markedAreas, obliterate, protectAreas } from './damage/marks';
 import type { Stroke } from './damage/paint';
 import {
+  generateBlots,
   generateFolds,
   generateFragmentCuts,
   generateSmudges,
   generateTears,
+  type Blot,
   type Cut,
   type Fold,
   type Smudge,
@@ -41,7 +43,7 @@ export interface Features {
   smudges: Smudge[];
   /** Big breaks that make a stone into a fragment. */
   cuts: Cut[];
-  /** Ink blots over words marked [[like this]]. */
+  /** Ink blots, dropped at random or over words marked [[like this]]. */
   blots: Blot[];
 }
 
@@ -156,6 +158,11 @@ export function buildScenes(settings: Settings, measure: Measure): Scene[] {
       .map((span) => ({ ...span, start: span.start - pageText.start, end: span.end - pageText.start }));
     const marks = markedAreas(drawing, pageSpans, measure);
     const seed = (id: string) => seedFor(seeds.damage, id);
+    // Points in the middle of the writing, where a pen would have dropped its blots.
+    const written = drawing.runs.map((run): [number, number] => [
+      run.x + 0.5 * measure.width(run.text) * drawing.size * run.scale,
+      run.y - 0.3 * drawing.size * run.scale,
+    ]);
 
     const random: Features = {
       chips: [
@@ -170,7 +177,7 @@ export function buildScenes(settings: Settings, measure: Measure): Scene[] {
       folds: generateFolds(amount('folds'), width, height, seed('folds')),
       smudges: generateSmudges(amount('smudges'), box, seed('smudges')),
       cuts: settings.shape === 'fragment' ? generateFragmentCuts(width, height, seed('fragment')) : [],
-      blots: [],
+      blots: generateBlots(amount('blots'), box, written, seed('blots')),
     };
     const randomCracks = [
       ...generateCracks(amount('cracks'), width, height, seed('cracks')),

@@ -62,6 +62,13 @@ describe('protectAreas', () => {
     expect(result.cracks).toHaveLength(1);
   });
 
+  it('keeps ink blots, droplets and all, off protected words', () => {
+    const blot = (x: number, spatter: number) => ({ x, y: 105, rx: 4, ry: 4, angle: 0, round: true, spatter, seed: 0 });
+    // 10 mm from the box: clear of a tidy blot, but not of one that splashed far.
+    const result = protectAreas({ ...none, blots: [blot(150, 0.2), blot(150, 1), blot(300, 1)] }, [], [box], center);
+    expect(result.features.blots.map((b) => [b.x, b.spatter])).toEqual([[150, 0.2], [300, 1]]);
+  });
+
   it('drops cuts that would remove the box, and keeps ones on the far side', () => {
     const result = protectAreas(
       {
@@ -97,6 +104,7 @@ describe('obliterate', () => {
     const [blot] = obliterate([box], 'blot', 6).blots;
     expect(blot.rx).toBeGreaterThan(box.width / 2);
     expect(blot.ry).toBeGreaterThan(box.height / 2);
+    expect(blot.round).toBe(false); // squarish, to cover the word's corners
     const [hole] = obliterate([box], 'hole', 6).holes;
     expect(distanceToBox(hole.x, hole.y, box)).toBe(0);
     expect(hole.rx).toBeGreaterThan(box.width / 2);

@@ -5,7 +5,7 @@ import { generateBreaks, generateChips } from './chips';
 import { generateCracks } from './cracks';
 import { FEATURE_LAYOUT, FEATURE_ROWS, MAX_FEATURES, packFeatures } from './features';
 import { generateHoles } from './holes';
-import { generateFolds, generateFragmentCuts, generateSmudges, generateTears } from './sheetDamage';
+import { blotReach, generateBlots, generateFolds, generateFragmentCuts, generateSmudges, generateTears } from './sheetDamage';
 import { generateStains } from './stains';
 import { damageAmounts } from './types';
 
@@ -148,6 +148,31 @@ describe('sheet damage', () => {
     }
   });
 
+  it('drops ink blots, more and bigger ones with damage, mostly onto the writing', () => {
+    const area = { x: 16, y: 18, width: 116, height: 170 };
+    const written: [number, number][] = [[30, 30], [60, 30], [90, 40]];
+    expect(generateBlots(0, area, written, 1)).toEqual([]);
+    const light = generateBlots(0.1, area, written, 1);
+    const heavy = generateBlots(1, area, written, 1);
+    expect(light).toHaveLength(1);
+    expect(heavy).toHaveLength(4);
+    expect(heavy[0].rx).toBeGreaterThan(light[0].rx);
+    expect(generateBlots(0.7, area, written, 5)).toEqual(generateBlots(0.7, area, written, 5));
+    const many = [1, 2, 3, 4, 5, 6, 7, 8].flatMap((seed) => generateBlots(1, area, written, seed));
+    const onWriting = many.filter((b) => written.some(([x, y]) => x === b.x && y === b.y));
+    expect(onWriting.length / many.length).toBeGreaterThan(0.5);
+    for (const blot of many) {
+      expect(blot.round).toBe(true);
+      expect(blot.spatter).toBeGreaterThanOrEqual(0.2);
+      expect(blot.spatter).toBeLessThanOrEqual(1);
+      expect(blot.x).toBeGreaterThanOrEqual(area.x);
+      expect(blot.x).toBeLessThanOrEqual(area.x + area.width);
+      expect(blotReach(blot)).toBeGreaterThan(Math.max(blot.rx, blot.ry));
+    }
+    // Without any writing, they land anywhere in the area.
+    expect(generateBlots(1, area, [], 3)).toHaveLength(4);
+  });
+
   it('makes water stains, growing with damage', () => {
     expect(generateStains(0, 148, 210, 1)).toEqual([]);
     expect(generateStains(1, 148, 210, 1)[0].radius).toBeGreaterThan(generateStains(0.1, 148, 210, 1)[0].radius);
@@ -191,6 +216,14 @@ describe('packFeatures', () => {
     expect(texel(FEATURE_LAYOUT.chips + 1, 0)).toEqual([5, 1, 0.5, 1.5]);
     expect(texel(FEATURE_LAYOUT.folds, 1)).toEqual([4, 5, 6, 7]);
     expect(texel(FEATURE_LAYOUT.folds + 1, 1)).toEqual([9, 0.25, 0, 0]);
+  });
+
+  it('packs a blot’s shape, spatter and angle', () => {
+    const blot = { x: 1, y: 2, rx: 3, ry: 4, angle: 0.5, round: true, spatter: 0.75, seed: 6 };
+    const packed = packFeatures({ ...empty, blots: [blot] });
+    const at = (row: number) => Array.from(packed.data.slice(row * MAX_FEATURES * 4, row * MAX_FEATURES * 4 + 4));
+    expect(at(FEATURE_LAYOUT.blots)).toEqual([1, 2, 3, 4]);
+    expect(at(FEATURE_LAYOUT.blots + 1)).toEqual([6, 1, 0.75, 0.5]);
   });
 
   it('drops features beyond the shader limit', () => {

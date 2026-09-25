@@ -57,7 +57,9 @@ export function sanitizeSettings(data: unknown): Settings | null {
   ) as unknown as Seeds;
 
   const base = defaultSettings(input.medium, seeds);
-  const mixIn = (input.damageMix ?? {}) as Record<string, unknown>;
+  // A saved mix lists every damage type its medium had at the time. Types added since
+  // start at nothing, so an old handout comes back as it was.
+  const mixIn = input.damageMix && typeof input.damageMix === 'object' ? (input.damageMix as Record<string, unknown>) : null;
   const lightIn = input.light as Record<string, unknown> | null | undefined;
 
   return {
@@ -76,7 +78,7 @@ export function sanitizeSettings(data: unknown): Settings | null {
     transparent: typeof input.transparent === 'boolean' ? input.transparent : base.transparent,
     damage: clamp(input.damage, 0, 1, base.damage),
     damageMix: Object.fromEntries(
-      Object.entries(base.damageMix).map(([id, weight]) => [id, clamp(mixIn[id], 0, 1, weight ?? 0)]),
+      Object.entries(base.damageMix).map(([id, weight]) => [id, mixIn ? clamp(mixIn[id], 0, 1, 0) : (weight ?? 0)]),
     ),
     fade: clamp(input.fade, 0, 1, base.fade),
     strokes: sanitizeStrokes(input.strokes),

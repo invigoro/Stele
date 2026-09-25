@@ -37,6 +37,16 @@ describe('buildScene', () => {
     expect(scene('marble', { shape: 'rectangle' }).features.cuts).toEqual([]);
   });
 
+  it('drops ink blots on the media written in ink', () => {
+    for (const medium of ['paper', 'parchment', 'papyrus'] as const) {
+      const blots = scene(medium).features.blots;
+      expect(blots.length, medium).toBeGreaterThan(0);
+      expect(blots.every((blot) => blot.round)).toBe(true);
+      expect(scene(medium, { damageMix: { ...MEDIA[medium].damage, blots: 0 } }).features.blots).toEqual([]);
+    }
+    expect(scene('marble').features.blots).toEqual([]);
+  });
+
   it('respects the damage mix and the overall amount', () => {
     expect(scene('marble', { damageMix: { lichen: 0.5 } }).features.chips).toEqual([]);
     expect(scene('marble', { damage: 0 }).fields.lichen).toBe(0);

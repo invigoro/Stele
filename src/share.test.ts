@@ -66,6 +66,13 @@ describe('sanitizeSettings', () => {
     expect(Number.isInteger(settings!.seeds.material)).toBe(true);
   });
 
+  it('starts damage types added since a handout was saved at nothing, so it looks the same', () => {
+    const saved = sanitizeSettings({ medium: 'paper', damageMix: { water: 0.7, folds: 0.5 } });
+    expect(saved!.damageMix).toMatchObject({ water: 0.7, folds: 0.5, blots: 0 });
+    // With no mix at all, the medium's own defaults apply.
+    expect(sanitizeSettings({ medium: 'paper' })!.damageMix).toEqual(MEDIA.paper.damage);
+  });
+
   it('needs at least a known medium', () => {
     expect(sanitizeSettings(null)).toBeNull();
     expect(sanitizeSettings({ medium: 'cheese' })).toBeNull();
