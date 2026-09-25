@@ -93,6 +93,10 @@ export const PRESETS: Preset[] = [
     },
   },
   {
+    label: 'Broken clay tablet',
+    settings: { medium: 'clay', shape: 'fragment', damage: 0.6, fade: 0.35 },
+  },
+  {
     label: 'Typed memo',
     settings: {
       medium: 'paper',

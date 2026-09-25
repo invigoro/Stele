@@ -126,11 +126,10 @@ interface Settings {
 | Papyrus | carbon ink | holes, breaks along the fibres, frayed edges, darkening, ink blots | ink flakes off in patches |
 | *Parchment* | ink | as paper, plus warping | as paper |
 | *Granite, Slate* | V-cut, gold-filled | as marble | granite's speckle hides letters; slate's pale fresh-cut letters dull to the surface color |
+| *Clay tablet* | pressed in with a stylus, which pushes up a lip of clay along each stroke | chips, broken corners, drying cracks, flaking, stains | the lips wear away, then the shallow parts of the grooves; dirt settles in them |
 | *Bronze plaque* | cast in relief (or engraved, perhaps filled black) | verdigris, corrosion pits, scratches, dents; marked words vanish under a crust of corrosion | the raised letters wear lower and rounder, and their rubbed shine dulls toward the patina |
 
 - **Italic rows:** cheap to add once the paper and stone versions work.
-- **Later:** clay tablets (letters pressed in)
-  need new writing methods, so they're in the backlog.
 - **Shapes:** rectangle, round-top stele, tabula ansata (the Roman plaque with dovetail handles on
   each side), broken fragment, and for paper, a full sheet or a torn note.
 
@@ -268,7 +267,7 @@ download, moss as a brush on stone, `[` and `]` for the brush size, and ink blot
 on paper, parchment and papyrus.
 
 **Backlog:**
-- media: clay and wax tablets, leather, chalk on slate
+- media: wax tablets, leather, chalk on slate
 - writing methods: pencil, burned-in lettering
 - extras: wax seals, a signature in a different hand
 - converting text to runes

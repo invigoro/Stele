@@ -5,7 +5,7 @@ import type { Hand } from '../text/hand';
 export type Rgb = readonly [number, number, number];
 
 /** How the writing was made; each kind has its own shader code. */
-export type WritingKind = 'carve' | 'paint' | 'burn' | 'ink' | 'relief';
+export type WritingKind = 'carve' | 'paint' | 'burn' | 'ink' | 'relief' | 'impress';
 
 export interface MethodDef {
   label: string;
@@ -69,6 +69,7 @@ export const METHODS = {
     obliterate: 'redact',
   },
   cast: { label: 'Cast in relief', kind: 'relief' },
+  impressed: { label: 'Pressed in with a stylus', kind: 'impress' },
   engraved: { label: 'Engraved', kind: 'carve' },
   'engraved-filled': { label: 'Engraved, filled black', kind: 'carve', fill: true, color: [0.05, 0.05, 0.05] },
 } satisfies Record<string, MethodDef>;
@@ -76,4 +77,4 @@ export const METHODS = {
 export type MethodId = keyof typeof METHODS;
 
 /** Shader codes for each kind (WRITING_* in surface/common.glsl). */
-export const WRITING_CODES: Record<WritingKind, number> = { carve: 0, paint: 1, burn: 2, ink: 3, relief: 4 };
+export const WRITING_CODES: Record<WritingKind, number> = { carve: 0, paint: 1, burn: 2, ink: 3, relief: 4, impress: 5 };

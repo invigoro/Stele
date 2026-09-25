@@ -47,6 +47,13 @@ describe('buildScene', () => {
     expect(scene('marble').features.blots).toEqual([]);
   });
 
+  it('presses a clay tablet\u2019s letters in with a stylus, and chips out marked words', () => {
+    const clay = scene('clay', { text: 'Pay [[Nanni]] in copper', damage: 0 });
+    expect(clay.method.kind).toBe('impress');
+    expect(clay.features.chips).toHaveLength(1);
+    expect(clay.fields.lichen).toBe(0);
+  });
+
   it('dents, scratches and greens a bronze plaque', () => {
     const bronze = scene('bronze');
     expect(bronze.features.chips.length).toBeGreaterThan(0); // dents

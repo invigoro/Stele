@@ -69,6 +69,8 @@ export interface MediumDef {
 }
 
 const CHISEL: Hand = { perGlyph: true, rotation: 0.5, baseline: 0.012, spacing: 0.012, scale: 0.012, lineSlope: 0.15, dipPen: false };
+/** Pressed into soft clay by hand, a sign at a time. */
+const STYLUS: Hand = { perGlyph: true, rotation: 1.2, baseline: 0.03, spacing: 0.03, scale: 0.04, lineSlope: 0.6, dipPen: false };
 /** Cast from a pattern set in type: all but perfectly regular. */
 const CAST: Hand = { perGlyph: true, rotation: 0.15, baseline: 0.004, spacing: 0.004, scale: 0.004, lineSlope: 0.05, dipPen: false };
 const PEN: Hand = { perGlyph: true, rotation: 1.2, baseline: 0.03, spacing: 0.04, scale: 0.03, lineSlope: 0.6, dipPen: true };
@@ -183,6 +185,36 @@ export const MEDIA = {
     methods: ['carved', 'carved-flat', 'gilt', 'painted-white'],
     shapes: ['stele', 'rectangle', 'fragment'],
     damage: { chips: 0.4, breaks: 0.5, cracks: 0.5, flaking: 0.7, lichen: 0.4 },
+    obliterate: 'chip',
+  },
+  clay: {
+    label: 'Clay tablet',
+    family: 'stone',
+    shader: 'clay',
+    width: 110,
+    height: 150,
+    padding: { x: 13, y: 14 },
+    thickness: 30,
+    text:
+      'Tell Ea-nasir: Nanni sends the following message. When you came, you said to me, ' +
+      '\u201cI will give Gimil-Sin fine quality copper ingots.\u201d You then left, but you did not ' +
+      'do what you promised me. What do you take me for, that you treat somebody like me ' +
+      'with such contempt?',
+    font: 'marcellus',
+    align: 'left',
+    verticalAlign: 'top',
+    wrap: 'word',
+    maxTextSize: 8,
+    hand: STYLUS,
+    light: { ...RAKING, elevation: 22, specular: 0.05, shininess: 10 },
+    variants: {
+      fired: { label: 'Fired terracotta', palette: [[0.7, 0.46, 0.31], [0.58, 0.36, 0.23], [0.32, 0.25, 0.21], [0.86, 0.75, 0.6]] },
+      dried: { label: 'Sun-dried', palette: [[0.74, 0.66, 0.53], [0.63, 0.55, 0.44], [0.47, 0.42, 0.36], [0.87, 0.81, 0.71]] },
+      grey: { label: 'Grey clay', palette: [[0.56, 0.54, 0.51], [0.46, 0.44, 0.41], [0.31, 0.3, 0.29], [0.74, 0.72, 0.68]] },
+    },
+    methods: ['impressed', 'carved'],
+    shapes: ['rectangle', 'fragment'],
+    damage: { chips: 0.6, breaks: 0.6, cracks: 0.5, flaking: 0.3, stains: 0.3 },
     obliterate: 'chip',
   },
   bronze: {

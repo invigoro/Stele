@@ -21,6 +21,7 @@ const int WRITING_PAINT = 1;
 const int WRITING_BURN = 2;
 const int WRITING_INK = 3;
 const int WRITING_RELIEF = 4;
+const int WRITING_IMPRESS = 5;
 
 // Rows of the features texture, two per kind (see damage/features.ts).
 const int MAX_FEATURES = 64;

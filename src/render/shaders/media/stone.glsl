@@ -6,6 +6,11 @@
 //   const float CHISEL_SLOPE                 V-cut depth per mm in from the letter edge
 //   const float GRAIN_SIZE                   mm, scale of granular erosion
 //   const float FLAKE_LAYER                  mm, thickness of the layer that flakes off
+// and may define:
+//   #define ARRIS <mm>          width of the rounded front edge (2 mm if not)
+//   #define FACE_SHAPE          and float faceShape(vec2 p), mm the face rises (a dome)
+//   #define OUTLINE_WANDER      and float outlineWander(vec2 p), mm the outline strays outward
+//   #define IMPRESSED_WRITING   to handle lettering pressed in with a stylus
 
 #include "../lib/shapes.glsl"
 #include "../writing/carve.glsl"
@@ -16,7 +21,9 @@
 #include "../damage/weathering.glsl"
 #include "../damage/painted.glsl"
 
-const float ARRIS = 2.0; // mm, width of the rounded front edge
+#ifndef ARRIS
+#define ARRIS 2.0
+#endif
 
 // Covers the surface with lichen or moss, which fills hollows up to `fill` mm below the face.
 void overgrow(inout Surface s, Growth growth, float face, float fill) {
@@ -30,10 +37,16 @@ void overgrow(inout Surface s, Growth growth, float face, float fill) {
 void buildSurface(vec2 p, inout Surface s) {
   // Outline, less any big breaks that make the slab a fragment.
   float outside = outlineDistance(p, CORNER_RADIUS);
+#ifdef OUTLINE_WANDER
+  outside -= outlineWander(p);
+#endif
   float broken = cutsAt(p, CUT_ROW, u_cutCount, 5.0, 28.0, 0.1);
   s.alpha = coverageFrom(min(-outside, -broken));
   float arris = clamp(1.0 + outside / ARRIS, 0.0, 1.0);
   s.height = -0.5 * ARRIS * (1.0 - sqrt(max(1.0 - arris * arris, 0.0))) + mouldingHeight(p, CORNER_RADIUS);
+#ifdef FACE_SHAPE
+  s.height += faceShape(p);
+#endif
   // A broken edge falls away steeply and roughly.
   float breakFace = 1.0 - smoothstep(0.0, 4.0, -broken);
   s.height -= 4.0 * breakFace * breakFace * (0.8 + 0.4 * snoise(p / 1.5 + u_damageSeed));
@@ -61,7 +74,22 @@ void buildSurface(vec2 p, inout Surface s) {
       s.albedo = mix(s.albedo, paintColor(wear), paint);
       s.height += 0.02 * paint;
       s.roughness = mix(s.roughness, 0.55, paint);
-    } else {
+    }
+#ifdef IMPRESSED_WRITING
+    else if (u_writing == WRITING_IMPRESS) {
+      // Pressed into soft clay: a rounded groove, a little uneven, with the clay it
+      // pushed aside standing up in a low lip along each side. Wear takes the lips
+      // first, then the shallow parts of the grooves; dirt settles in them.
+      float d = textDistance(p) + 0.04 * u_textSize * snoise(p / (0.5 * u_textSize) + u_materialSeed * 5.0);
+      float erosion = pow(wear, 1.2) * 0.06 * u_textSize + worn * 0.1 * u_textSize;
+      float groove = max(0.12 * u_textSize * smoothstep(-0.01 * u_textSize, 0.05 * u_textSize, d) - erosion, 0.0);
+      float ridge = (d + 0.03 * u_textSize) / (0.02 * u_textSize);
+      float lip = 0.012 * u_textSize * exp(-ridge * ridge) * (1.0 - 0.8 * wear) * (1.0 - worn);
+      s.height += lip - groove;
+      s.albedo *= 1.0 - 0.12 * smoothstep(0.0, 0.3, groove) * (0.4 + u_fade);
+    }
+#endif
+    else {
       float erosion = pow(wear, 1.3) * 0.09 * u_textSize + worn * 0.12 * u_textSize;
       float rounding = 0.04 * u_textSize * (0.3 + u_fade);
       float cut = carveDepth(textDistance(p), CHISEL_SLOPE, erosion, rounding, 0.07 * u_textSize);

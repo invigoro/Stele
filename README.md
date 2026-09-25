@@ -8,10 +8,10 @@ to share with players or print, where damage and fading make it harder for playe
 
 ## Using it
 
-- **Pick a medium:** marble, sandstone, granite, slate, a bronze plaque, wood, paper, parchment or
-  papyrus. Each has colour variants, shapes (a Roman tabula ansata, a round-topped stele, a broken
+- **Pick a medium:** marble, sandstone, granite, slate, a clay tablet, a bronze plaque, wood, paper,
+  parchment or papyrus. Each has colour variants, shapes (a Roman tabula ansata, a round-topped stele, a broken
   fragment, a torn sheet…) and writing methods (carved, gilded, painted, burned, inked, typed, cast
-  in relief, engraved).
+  in relief, engraved, pressed into clay).
 - **Type the text,** choose a style (Roman capitals, blackletter, copperplate, handwriting,
   typewriter, runes…), and add wear:
   - **Damage** scales everything the medium can suffer; "Damage types" adjusts each one (chips,
