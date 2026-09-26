@@ -7,6 +7,7 @@ import { changeScript, newSignature, newTextBlock, updateBlock, type Settings } 
 import { FONTS, type FontId } from '../text/fonts';
 import type { Align, Box } from '../text/layout';
 import { PICTURE_USES, UPLOAD, type PictureUse } from '../text/picture';
+import type { WordDivision } from '../text/roman';
 import { SCRIPTS, type ScriptId } from '../text/scripts';
 import { button, buttonRow, checkbox, hint, segmented, select, slider, textArea, textInput } from './controls';
 import type { Store } from './store';
@@ -209,9 +210,36 @@ export function blockFields(store: Store<Settings>, actions: BlockActions, subsc
               format: percent,
               onInput: (size) => patch({ size }),
             }),
-            alignField(block.align, (align) => patch({ align })),
+            alignField(block.align, (align) => patch({ align }), true),
             ...(block.script === 'latin'
-              ? [checkbox({ label: 'Roman letter forms (V for U, dots between words)', checked: block.roman, onChange: (roman) => patch({ roman }) })]
+              ? [
+                  checkbox({
+                    label: 'Roman letters (capitals, V for U, I for J)',
+                    checked: block.roman,
+                    onChange: (roman) => {
+                      const current = store.get().blocks.find((b) => b.id === block.id);
+                      // The classic look in one click: dots between words, unless something else was chosen.
+                      const dots = roman && current?.kind === 'text' && current.words === 'spaces' && !current.stops;
+                      patch(dots ? { roman, words: 'dots' } : { roman });
+                      renderEditor();
+                    },
+                  }),
+                  select<string>({
+                    label: 'Between words',
+                    value: block.words + (block.stops ? '+stops' : ''),
+                    options: [
+                      { value: 'spaces', label: 'Spaces' },
+                      { value: 'spaces+stops', label: 'Spaces, dots between sentences' },
+                      { value: 'dots', label: 'Dots' },
+                      { value: 'none', label: 'Nothing (scriptio continua)' },
+                      { value: 'none+stops', label: 'Nothing, dots between sentences' },
+                    ],
+                    onChange: (value) => {
+                      const [words, stops] = value.split('+');
+                      patch({ words: words as WordDivision, stops: stops === 'stops' });
+                    },
+                  }),
+                ]
               : []),
             select<'flow' | 'fit'>({
               label: 'Long text',
@@ -402,7 +430,8 @@ export function blockFields(store: Store<Settings>, actions: BlockActions, subsc
   ];
 }
 
-function alignField(value: Align, onChange: (align: Align) => void): HTMLElement {
+/** Left, centre or right, and for text, justified. */
+function alignField(value: Align, onChange: (align: Align) => void, justify = false): HTMLElement {
   return segmented<Align>({
     label: 'Align',
     value,
@@ -410,6 +439,7 @@ function alignField(value: Align, onChange: (align: Align) => void): HTMLElement
       { value: 'left', label: 'Left' },
       { value: 'center', label: 'Centre' },
       { value: 'right', label: 'Right' },
+      ...(justify ? [{ value: 'justify' as const, label: 'Justify' }] : []),
     ],
     onChange,
   });

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { normalizeText, parseMarkup } from './markup';
-import { romanize } from './roman';
 
 describe('normalizeText', () => {
   it('collapses spaces and tabs and trims lines, keeping line breaks', () => {
@@ -26,15 +25,5 @@ describe('parseMarkup', () => {
 
   it('does not let a span cross a line break', () => {
     expect(parseMarkup('[[one\ntwo]]').spans).toEqual([]);
-  });
-});
-
-describe('romanize', () => {
-  it('uses capitals, V for U, I for J, and dots between words', () => {
-    expect(romanize('Julius lived\nhere')).toBe('IVLIVS · LIVED\nHERE');
-  });
-
-  it('does not double up existing dots', () => {
-    expect(romanize('H · S · E')).toBe('H · S · E');
   });
 });

@@ -171,8 +171,10 @@ interface Settings {
   - per-letter irregularity only for fonts whose letters don't join, because it would break
     cursive connections
   - dip-pen ink cycles: ink gets lighter over a few words, then dark again after a "re-dip"
-- **Helpers:** automatic font sizing, and a Roman style option (uppercase, U→V, J→I, and a raised
-  dot between words).
+- **Helpers:** automatic font sizing, and Roman lettering: uppercase, U→V and J→I; a raised dot
+  between words, or none at all (scriptio continua, broken between any two letters), optionally
+  with a dot between sentences; and justified lines, spread at the word gaps, or between every
+  letter where the words run together.
 - **Later:** uploading your own font, such as a Dethek or Espruar font you own.
 
 ## Printing and export

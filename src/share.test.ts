@@ -123,6 +123,18 @@ describe('sanitizeSettings', () => {
     expect(await decodeSettings(await encodeSettings(settings))).toEqual(settings);
   });
 
+  it('keeps what goes between words, reading Roman letters saved before the choice with dots, as they were', async () => {
+    const old = sanitizeSettings({ medium: 'marble', blocks: [{ id: 'a', kind: 'text', text: 'X', roman: true, align: 'justify' }] })!;
+    expect(old.blocks[0]).toMatchObject({ roman: true, words: 'dots', stops: false, align: 'justify' });
+    const settings = { ...defaultSettings('marble', seeds) };
+    settings.blocks = [
+      newTextBlock('a', 'marble', { roman: true, words: 'none', stops: true }),
+      newTextBlock('b', 'marble', { roman: true, words: 'spaces' }),
+      newTextBlock('c', 'marble', { words: 'dots' }),
+    ];
+    expect(await decodeSettings(await encodeSettings(settings))).toEqual(settings);
+  });
+
   it('keeps pen lines finely, and their narrow widths', () => {
     const settings = sanitizeSettings({
       medium: 'marble',

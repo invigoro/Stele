@@ -25,10 +25,10 @@ import { METHODS, type MethodDef, type Rgb } from './media/writing';
 import type { Settings } from './settings';
 import { FONTS, type FontDef, type FontId } from './text/fonts';
 import { drawText, type Drawing, type Hand, type PlacedPicture, type Rule, type Run } from './text/hand';
-import { layoutText, lineWidth, type Align, type Box, type Measure, type TextLayout, type VerticalAlign } from './text/layout';
+import { layoutText, lineWidth, type Align, type Box, type Measure, type TextLayout, type VerticalAlign, type Wrap } from './text/layout';
 import { normalizeText, parseMarkup, type Span } from './text/markup';
 import { paginate, type PageText } from './text/pages';
-import { romanize } from './text/roman';
+import { letter } from './text/roman';
 import { transliterate } from './text/scripts';
 import { mulberry32 } from './util/rng';
 
@@ -143,12 +143,15 @@ interface TextPlan {
   block: TextBlock;
   font: FontDef;
   measure: Measure;
+  /** The text as laid out, without markup, and its markup. */
+  text: string;
   spans: Span[];
   pages: PageText[];
   size: number;
   area: Box;
   angle: number;
   verticalAlign: VerticalAlign;
+  wrap: Wrap;
   hand: Hand;
   salt: number;
   first: number;
@@ -242,8 +245,7 @@ export function buildScenes(settings: Settings, measureFor: MeasureFor, resource
     const measure = measureOf(block.font);
     const baseHand = block.byHand ? medium.hand : (method.hand ?? medium.hand);
     const hand = { ...baseHand, perGlyph: baseHand.perGlyph && !font.connected };
-    const inScript =
-      block.script === 'latin' ? (block.roman ? romanize(block.text) : block.text) : transliterate(block.text, block.script);
+    const inScript = block.script === 'latin' ? letter(block.text, block) : transliterate(block.text, block.script);
     if (trailing(block)) {
       // Signed on one line, in Latin letters as written.
       const { text, spans } = parseMarkup(normalizeText(block.text).replace(/\n/g, ' '));
@@ -257,6 +259,8 @@ export function buildScenes(settings: Settings, measureFor: MeasureFor, resource
     const flow = block === flowing;
     const auto = block.frame === null;
     const verticalAlign: VerticalAlign = auto ? medium.verticalAlign : flow ? 'top' : 'middle';
+    // Words that run together break between any two letters.
+    const wrap: Wrap = block.script === 'latin' && block.words === 'none' ? 'anywhere' : medium.wrap;
     const { pages, size } = paginate(
       text,
       flow ? 'flow' : 'fit',
@@ -264,7 +268,7 @@ export function buildScenes(settings: Settings, measureFor: MeasureFor, resource
         box: placed.box,
         align: block.align,
         verticalAlign,
-        wrap: medium.wrap,
+        wrap,
         lineHeight: font.lineHeight,
         letterSpacing: font.letterSpacing,
         scale: block.size,
@@ -278,12 +282,14 @@ export function buildScenes(settings: Settings, measureFor: MeasureFor, resource
       block,
       font,
       measure,
+      text,
       spans: parsed.spans,
       pages,
       size: Number.isFinite(size) ? size : maxSize,
       area: placed.box,
       angle: placed.angle,
       verticalAlign,
+      wrap,
       hand,
       salt: saltFor(block),
       first: block.page,
@@ -387,23 +393,25 @@ export function buildScenes(settings: Settings, measureFor: MeasureFor, resource
       const chunk = plan.pages[page - plan.first];
       if (!chunk) return;
       const { block, font, measure } = plan;
+      const chunkEnd = chunk.start + chunk.text.length;
+      const next = plan.pages[page - plan.first + 1];
       const layout = layoutText(
         {
           box: plan.area,
           align: block.align,
           verticalAlign: plan.verticalAlign,
-          wrap: medium.wrap,
+          wrap: plan.wrap,
           lineHeight: font.lineHeight,
           letterSpacing: font.letterSpacing,
           text: chunk.text,
           // Every page shares one text size, already scaled by the Size slider.
           scale: 1,
           maxSize: plan.size,
+          runsOn: next !== undefined && !plan.text.slice(chunkEnd, next.start).includes('\n'),
         },
         measure,
       );
       const drawn = drawText(layout, measure, plan.hand, (seeds.hand ^ plan.salt) >>> 0, settings.seeds.hand);
-      const chunkEnd = chunk.start + chunk.text.length;
       const spans = plan.spans
         .filter((span) => span.end > chunk.start && span.start < chunkEnd)
         .map((span) => ({ ...span, start: span.start - chunk.start, end: span.end - chunk.start }));

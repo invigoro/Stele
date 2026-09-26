@@ -7,6 +7,7 @@ import { defaultSettings, randomSeeds, templateText, withText, type Seeds, type 
 import type { Align } from './text/layout';
 import { isFontId } from './text/fonts';
 import { PICTURE_USES, type PictureSettings, type PictureUse } from './text/picture';
+import { isWordDivision } from './text/roman';
 import { isScriptId } from './text/scripts';
 
 /** Bumped when the stored shape of settings changes incompatibly. */
@@ -60,7 +61,8 @@ function sanitizeStrokes(data: unknown): Stroke[] {
   return strokes;
 }
 
-const isAlign = (value: unknown): value is Align => value === 'left' || value === 'center' || value === 'right';
+const isAlign = (value: unknown): value is Align =>
+  value === 'left' || value === 'center' || value === 'right' || value === 'justify';
 
 /** A valid frame, or null for a block arranged with the template. */
 function sanitizeFrame(data: unknown): Frame | null {
@@ -102,6 +104,8 @@ function sanitizeBlocks(data: unknown[], medium: MediumId): Block[] {
       // Only the first block that runs on to more pages does.
       const flow: boolean = input.flow === true && !flowing;
       flowing ||= flow;
+      // Blocks saved before the choice existed had dots between words with Roman letters.
+      const words = isWordDivision(input.words) ? input.words : input.roman === true ? 'dots' : 'spaces';
       blocks.push({
         ...common,
         kind: 'text',
@@ -109,6 +113,8 @@ function sanitizeBlocks(data: unknown[], medium: MediumId): Block[] {
         font: typeof input.font === 'string' && isFontId(input.font) ? input.font : template.font,
         script: isScriptId(input.script) ? input.script : 'latin',
         roman: input.roman === true,
+        words,
+        stops: input.stops === true && words !== 'dots',
         size: clamp(input.size, 0.3, 1, 1),
         flow,
         byHand: input.byHand === true,
@@ -213,8 +219,9 @@ function fromBase64Url(text: string): Uint8Array<ArrayBuffer> {
 /** A block without the fields that say what their absence means anyway, to keep links short. */
 function compactBlock(block: Block): Partial<Block> {
   const compact: Record<string, unknown> = { ...block };
-  const defaults: Record<string, unknown> = { frame: null, page: 0, script: 'latin', roman: false, byHand: false, size: 1 };
+  const defaults: Record<string, unknown> = { frame: null, page: 0, script: 'latin', roman: false, stops: false, byHand: false, size: 1 };
   for (const [key, value] of Object.entries(defaults)) if (compact[key] === value) delete compact[key];
+  if (block.kind === 'text' && block.words === (block.roman ? 'dots' : 'spaces')) delete compact.words;
   return compact as Partial<Block>;
 }
 

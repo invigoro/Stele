@@ -1,8 +1,7 @@
 import { mulberry32 } from '../util/rng';
 import type { FontId } from './fonts';
-import type { Box } from './layout';
+import { gapShares, type Box, type Measure, type TextLayout } from './layout';
 import type { PictureSettings } from './picture';
-import type { Measure, TextLayout } from './layout';
 
 /**
  * How irregular the writing is. Angles are degrees; distances are fractions of the
@@ -128,9 +127,6 @@ export function drawText(layout: TextLayout, measure: Measure, hand: Hand, seed:
   const random = mulberry32(seed);
   const jitter = (amount: number) => (random() * 2 - 1) * amount;
   const { size, letterSpacing } = layout;
-  // Offset of the character at `index` from the start of the line, with letter spacing.
-  const offset = (chars: string[], index: number) =>
-    (measure.width(chars.slice(0, index).join('')) + letterSpacing * index) * size;
 
   const runs: Run[] = [];
   let ink = 1;
@@ -138,9 +134,19 @@ export function drawText(layout: TextLayout, measure: Measure, hand: Hand, seed:
 
   for (const line of layout.lines) {
     const chars = [...line.text];
+    // Offset of the character at `index` from the start of the line, with letter spacing,
+    // and spread out if the line is justified.
+    const shares = line.wordGap ? gapShares(chars) : [];
+    const offset = (index: number) => {
+      const before = chars.slice(0, index);
+      const gaps = shares.slice(0, index).reduce((sum, share) => sum + share, 0);
+      return (
+        (measure.width(before.join('')) + letterSpacing * index) * size + (line.letterGap ?? 0) * index + (line.wordGap ?? 0) * gaps
+      );
+    };
     const slope = Math.tan(jitter(hand.lineSlope) * DEGREES);
     const place = (text: string, index: number, density: number) => {
-      const x = line.x + offset(chars, index) + jitter(hand.spacing) * size;
+      const x = line.x + offset(index) + jitter(hand.spacing) * size;
       const run: Run = {
         text,
         x,

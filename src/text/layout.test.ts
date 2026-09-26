@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fitSize, layoutText, lineWidth, wrapLines, type LayoutOptions, type Measure } from './layout';
+import { fitSize, gapShares, layoutText, lineWidth, wrapLines, type LayoutOptions, type Measure } from './layout';
 
 // A monospaced fake font: every character is half an em wide.
 const mono: Measure = { width: (text) => [...text].length * 0.5, ascent: 0.7, descent: 0.3 };
@@ -40,6 +40,16 @@ describe('wrapLines', () => {
 
   it('breaks unspaced text anywhere in "anywhere" mode', () => {
     expect(wrapLines('HICSACERDOS', 'anywhere', 2, 1, mono, 0)).toEqual(['HICS', 'ACER', 'DOS']);
+  });
+
+  it('never starts a line with the dot or space between words', () => {
+    // Five characters fit: "ABC ·" does, with the space after the dot dropped.
+    expect(wrapLines('ABC · DEF', 'anywhere', 2.5, 1, mono, 0)).toEqual(['ABC ·', 'DEF']);
+    expect(wrapLines('ABCD · EF', 'anywhere', 2, 1, mono, 0)).toEqual(['ABC', 'D ·', 'EF']);
+  });
+
+  it('keeps a dot between words with the word before it', () => {
+    expect(wrapLines('AB · CD · EF', 'word', 2.5, 1, mono, 0)).toEqual(['AB ·', 'CD ·', 'EF']);
   });
 
   it('only breaks at newlines in "manual" mode', () => {
@@ -100,6 +110,36 @@ describe('layoutText', () => {
       ['GH', 9],
     ]);
     for (const line of layout.lines) expect(text.slice(line.start, line.start + line.text.length)).toBe(line.text);
+  });
+
+  it('justifies lines at the spaces between words, but not the last of a paragraph', () => {
+    const box = { x: 5, y: 0, width: 3.5, height: 100 };
+    // At size 1, "AB CD" is 2.5 wide; the 1 left over goes in its one space.
+    const layout = layoutText(options({ text: 'AB CD EF\nGH IJ', align: 'justify', box, maxSize: 1 }), mono);
+    expect(layout.lines.map((line) => [line.text, line.x, line.width, line.wordGap, line.letterGap])).toEqual([
+      ['AB CD', 5, 3.5, 1, undefined],
+      ['EF', 5, 1, undefined, undefined],
+      ['GH IJ', 5, 2.5, undefined, undefined],
+    ]);
+  });
+
+  it('gives the gap around a dot between words no more room than any other gap', () => {
+    expect(gapShares([...'AB · CD EF'])).toEqual([0, 0, 0.5, 0, 0.5, 0, 0, 1, 0, 0]);
+    expect(gapShares([...'AB CD ·'])).toEqual([0, 0, 1, 0, 0, 0, 0]);
+    // "AB · CD EF" is 5 wide at size 1; its two gaps share the 1 left over.
+    const layout = layoutText(options({ text: 'AB · CD EF XXXX', align: 'justify', box: { x: 0, y: 0, width: 6, height: 100 }, maxSize: 1 }), mono);
+    expect(layout.lines[0].wordGap).toBeCloseTo(0.5, 9);
+  });
+
+  it('justifies words that run together between every letter', () => {
+    const box = { x: 0, y: 0, width: 2.2, height: 100 };
+    const layout = layoutText(options({ text: 'ABCDEFGH', align: 'justify', wrap: 'anywhere', box, maxSize: 1 }), mono);
+    expect(layout.lines.map((line) => line.text)).toEqual(['ABCD', 'EFGH']);
+    expect(layout.lines[0].letterGap).toBeCloseTo(0.2 / 3, 9);
+    expect(layout.lines[1].letterGap).toBeUndefined();
+    // Carried on over the page, the last line is spread too.
+    const runsOn = layoutText(options({ text: 'ABCDEFGH', align: 'justify', wrap: 'anywhere', box, maxSize: 1, runsOn: true }), mono);
+    expect(runsOn.lines[1].letterGap).toBeCloseTo(0.2 / 3, 9);
   });
 
   it('returns no lines for blank text', () => {

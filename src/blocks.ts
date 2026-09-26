@@ -1,6 +1,7 @@
 import type { FontId } from './text/fonts';
 import type { Align, Box } from './text/layout';
 import type { PictureSettings } from './text/picture';
+import type { WordDivision } from './text/roman';
 import type { ScriptId } from './text/scripts';
 
 /**
@@ -41,8 +42,12 @@ export interface TextBlock extends BlockCommon {
   font: FontId;
   /** The script it's written in; the text itself stays in Latin letters. */
   script: ScriptId;
-  /** Classical Roman letter forms: capitals, V for U, I for J, dots between words. */
+  /** Classical Roman letters: capitals, V for U, I for J. */
   roman: boolean;
+  /** What goes between words: spaces, dots, or nothing. */
+  words: WordDivision;
+  /** A dot between sentences, in place of their full stops. */
+  stops: boolean;
   /** Run on to more pages rather than shrinking (only the first such block does). */
   flow: boolean;
   /** Written with a pen even on a typed page, as a signature is. */

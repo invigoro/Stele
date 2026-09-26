@@ -401,8 +401,33 @@ describe('damage markup', () => {
 
 describe('text and size options', () => {
   it('uses Roman letter forms when asked', () => {
-    const roman = scene('marble', { text: 'Julius', roman: true, damage: 0 });
-    expect(roman.drawing.runs.map((run) => run.text).join('')).toBe('IVLIVS');
+    const roman = scene('marble', { text: 'Julius lived', roman: true, damage: 0 });
+    expect(roman.drawing.runs.map((run) => run.text).join('')).toBe('IVLIVS·LIVED');
+  });
+
+  it('runs an inscription’s words together, with dots between its sentences, justified', () => {
+    const text = 'Here lies Gaius Julius Felix. He lived thirty five years and served in the legions.';
+    const s = scene('marble', { text, roman: true, words: 'none', stops: true, align: 'justify', damage: 0 });
+    const runs = [...s.drawing.runs].sort((a, b) => a.source - b.source);
+    expect(runs.map((run) => run.text).join('')).toBe('HERELIESGAIVSIVLIVSFELIX·HELIVEDTHIRTYFIVEYEARSANDSERVEDINTHELEGIONS');
+    // Split into lines where the baseline drops.
+    const size = s.drawing.size;
+    const lines: (typeof runs)[] = [];
+    runs.forEach((run, i) => {
+      if (i === 0 || run.y - runs[i - 1].y > 0.5 * size) lines.push([]);
+      lines[lines.length - 1].push(run);
+    });
+    expect(lines.length).toBeGreaterThan(2);
+    // Every line but the last fills the width, breaking words wherever it must.
+    const { x, width } = s.textBox;
+    for (const line of lines.slice(0, -1)) {
+      const last = line[line.length - 1];
+      expect(line[0].x).toBeCloseTo(x, 0);
+      expect(Math.abs(last.x + mono.width(last.text) * size * last.scale - (x + width))).toBeLessThan(0.05 * size);
+    }
+    const lastLine = lines[lines.length - 1];
+    const end = lastLine[lastLine.length - 1];
+    expect(end.x + mono.width(end.text) * size).toBeLessThan(x + width - size);
   });
 
   it('scales the object', () => {

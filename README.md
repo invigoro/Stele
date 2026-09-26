@@ -18,6 +18,10 @@ to share with players or print, where damage and fading make it harder for playe
     cracks, lichen, verdigris, burns, water, ink blots, tears, folds…).
   - **Fade** wears the writing itself away: carving grows shallow, ink thins and browns.
   - 🎲 rerolls where the damage or fading falls.
+- **Letter it like a Roman inscription:** Roman letters (capitals, V for U, I for J), a raised
+  dot between words, or no spaces at all (scriptio continua), with an optional dot between
+  sentences in place of their full stops. Justify the text to set it in an even block across
+  the stone.
 - **Write in runes or cuneiform:** type in English and pick a script: runes (Elder Futhark,
   Younger Futhark or Anglo-Saxon Futhorc), or cuneiform, spelled out in real Akkadian syllable
   signs that a player with a sign list could read back. Clay tablets start out in cuneiform, on

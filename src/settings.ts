@@ -8,6 +8,7 @@ import type { FontId } from './text/fonts';
 import type { Align } from './text/layout';
 import type { PageMode } from './text/pages';
 import type { PictureSettings } from './text/picture';
+import type { WordDivision } from './text/roman';
 import { SCRIPTS, type ScriptId } from './text/scripts';
 import { randomSeed } from './util/rng';
 
@@ -75,6 +76,8 @@ export function templateText(medium: MediumId): TextBlock {
     font: usualFont(medium, script),
     script,
     roman: false,
+    words: 'spaces',
+    stops: false,
     align: def.align,
     size: 1,
     // Letters run on to more sheets; inscriptions shrink to fit their stone or board.
@@ -123,6 +126,8 @@ export interface TextPatch {
   font?: FontId;
   script?: ScriptId;
   roman?: boolean;
+  words?: WordDivision;
+  stops?: boolean;
   align?: Align;
   textScale?: number;
   pages?: PageMode;
@@ -135,7 +140,8 @@ export interface TextPatch {
 }
 
 export const TEXT_PATCH_KEYS = [
-  'text', 'font', 'script', 'roman', 'align', 'textScale', 'pages', 'signature', 'signatureFont', 'writing', 'picture',
+  'text', 'font', 'script', 'roman', 'words', 'stops', 'align', 'textScale', 'pages', 'signature', 'signatureFont', 'writing',
+  'picture',
 ] as const satisfies readonly (keyof TextPatch)[];
 
 /** Splits settings written the older way into the rest and their writing. */
@@ -163,6 +169,10 @@ export function withText(settings: Settings, patch: TextPatch): Settings {
     ...(patch.font !== undefined ? { font: patch.font } : {}),
     ...(patch.script !== undefined ? { script: patch.script } : {}),
     ...(patch.roman !== undefined ? { roman: patch.roman } : {}),
+    // Roman letters used to bring dots between words with them.
+    ...(patch.roman ? { words: 'dots' as const } : {}),
+    ...(patch.words !== undefined ? { words: patch.words } : {}),
+    ...(patch.stops !== undefined ? { stops: patch.stops } : {}),
     ...(patch.align !== undefined ? { align: patch.align } : {}),
     ...(patch.textScale !== undefined ? { size: patch.textScale } : {}),
     ...(patch.pages !== undefined ? { flow: patch.pages === 'flow' } : {}),
